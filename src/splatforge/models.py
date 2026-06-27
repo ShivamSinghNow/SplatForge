@@ -36,6 +36,8 @@ class TaskSpec(BaseModel):
     goal: str
     success_radius_m: float = 0.05
     stable_grasp_steps: int = 10
+    # Contract (CONTRACTS.md §1): success = object lifted >= this height off the table.
+    lift_threshold_m: float = 0.10
 
 
 class SceneSpec(BaseModel):
