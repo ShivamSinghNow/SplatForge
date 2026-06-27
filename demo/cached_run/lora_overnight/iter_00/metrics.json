@@ -1,0 +1,9 @@
+{
+  "iteration": 0,
+  "run_id": "lora_overnight",
+  "success_rate": 0.4133,
+  "n_rollouts": 150,
+  "adapter_path": "demo/cached_run/lora_overnight/iter_00/adapter",
+  "curriculum_ids": [],
+  "timestamp": "2026-06-27T23:19:40.982183+00:00"
+}
