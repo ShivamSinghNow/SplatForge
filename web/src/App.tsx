@@ -465,7 +465,7 @@ function DetailSection({
   return (
     <DataGrid title="Control">
       <DataCard title="Current run">
-        <KeyValue label="Improvement" value={`+${improvement}%`} />
+        <KeyValue label="Improvement" value={`${improvement >= 0 ? '+' : ''}${improvement.toFixed(1)}%`} />
         <KeyValue label="Command" value={state.task.instruction} />
         <button className="primary-button" onClick={onRun} type="button">Run loop</button>
       </DataCard>

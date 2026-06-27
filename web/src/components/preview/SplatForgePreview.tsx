@@ -130,7 +130,7 @@ function ObjectActor({ object }: { object: WorldObject }) {
           <torusGeometry args={[0.072, 0.016, 16, 32, Math.PI]} />
           <meshStandardMaterial color="#d8d8d8" roughness={0.45} />
         </mesh>
-        <ObjectLabel label={object.label} />
+        <ObjectLabel label={object.label} position={[0, 0.36, 0]} />
       </group>
     );
   }
@@ -142,7 +142,6 @@ function ObjectActor({ object }: { object: WorldObject }) {
           <sphereGeometry args={[0.16, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial color="#2a2a2a" roughness={0.7} />
         </mesh>
-        <ObjectLabel label={object.label} />
       </group>
     );
   }
@@ -158,7 +157,6 @@ function ObjectActor({ object }: { object: WorldObject }) {
           <boxGeometry args={[1.08, 1, 1.08]} />
           <meshBasicMaterial color="#f2f2f2" wireframe transparent opacity={0.58} />
         </mesh>
-        <ObjectLabel label={object.label} />
       </group>
     );
   }
