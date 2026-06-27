@@ -1,0 +1,27 @@
+[
+  {
+    "iteration": 0,
+    "success_rate": 0.4667,
+    "policy_version": "policy_v0"
+  },
+  {
+    "iteration": 1,
+    "success_rate": 0.7,
+    "policy_version": "policy_v1"
+  },
+  {
+    "iteration": 2,
+    "success_rate": 0.8333,
+    "policy_version": "policy_v2"
+  },
+  {
+    "iteration": 3,
+    "success_rate": 0.9,
+    "policy_version": "policy_v3"
+  },
+  {
+    "iteration": 4,
+    "success_rate": 0.9333,
+    "policy_version": "policy_v4"
+  }
+]

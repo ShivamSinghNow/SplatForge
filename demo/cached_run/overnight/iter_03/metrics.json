@@ -1,0 +1,11 @@
+{
+  "iteration": 3,
+  "run_id": "overnight",
+  "success_rate": 0.9,
+  "n_rollouts": 30,
+  "adapter_path": "adapters/overnight/iter_03",
+  "curriculum_ids": [
+    "curriculum_b8bb740086ba"
+  ],
+  "timestamp": "2026-06-27T21:57:57.218534+00:00"
+}
