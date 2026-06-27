@@ -3,6 +3,11 @@ from splatforge.orchestrator.evaluation import (
     SuccessRateReport,
     evaluate_policy,
 )
+from splatforge.orchestrator.improvement import (
+    ImprovementResult,
+    IterationCheckpoint,
+    run_improvement_loop,
+)
 from splatforge.orchestrator.replay import (
     ReplayBuffer,
     TrajectoryRecord,
@@ -12,6 +17,8 @@ from splatforge.orchestrator.replay import (
 from splatforge.orchestrator.workflow import RunResult, run_practice_loop
 
 __all__ = [
+    "ImprovementResult",
+    "IterationCheckpoint",
     "ReplayBuffer",
     "RolloutRecord",
     "RunResult",
@@ -20,5 +27,6 @@ __all__ = [
     "episode_to_trajectory",
     "evaluate_policy",
     "load_local_trajectories",
+    "run_improvement_loop",
     "run_practice_loop",
 ]
