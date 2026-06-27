@@ -2,6 +2,12 @@
 chroma_db/
 *.sqlite3
 
+# Runtime outputs / generated scene assets
+runs/
+demo/assets/*
+!demo/assets/
+!demo/assets/README.md
+
 # Python
 __pycache__/
 *.py[cod]
