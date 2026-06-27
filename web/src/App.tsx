@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { SuccessRateChart } from './components/charts/SuccessRateChart';
 import { SplatForgePreview } from './components/preview/SplatForgePreview';
-import { createRun, fetchCachedCurve, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
+import { fetchCachedCurve, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
 import { RunProvider, useRun } from './lib/hooks/useRun';
 import { getDemoControlRoomState } from './lib/services/demoSplatForgeService';
 import type { CriticResult, IntegrationStatus, LoopStep, LoopStepId, StepStatus, TrainingWorld } from './lib/types/splatforge';
@@ -84,39 +84,27 @@ function SplatForgeApp() {
     })();
   }, []);
 
-  async function refreshMetrics(live = false) {
-    try {
-      const series = await fetchSuccessRate(live);
-      setMetrics(series);
-    } catch {
-      setMetrics({
-        points: [
-          { index: 1, success_rate: state.run.scoreBefore, label: 'initial attempt' },
-          { index: 2, success_rate: state.run.scoreAfter, label: 'after retest' },
-        ],
-        current_rate: state.run.scoreAfter,
-        source: 'demo',
-      });
+  function runCommand(nextCommand = command) {
+    // Demo strategy (A7): replay the banked real curve — instant + dramatic — rather
+    // than blocking ~27s on a live Gemini-critic run. The steps animate immediately.
+    if (nextCommand?.trim()) {
+      setCommand(nextCommand);
     }
-  }
-
-  async function runCommand(nextCommand = command) {
-    if (apiOnline) {
-      setNotice('Running live loop...');
-      try {
-        const summary = await createRun('mug_table', 'pick_mug', 'dry-run');
-        await refreshMetrics(true);
-        replayCachedRun();
-        setNotice(summary.phase);
-        setActiveSection('runs');
-        return;
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : 'Live run failed');
-      }
-    }
-    startLoop(nextCommand);
-    setNotice('Run started');
     setActiveSection('runs');
+    setNotice('Replaying self-improvement run...');
+    replayCachedRun();
+    void (async () => {
+      try {
+        setMetrics(await fetchCachedCurve('overnight'));
+        setNotice('Self-improvement run complete');
+      } catch {
+        try {
+          setMetrics(await fetchSuccessRate());
+        } catch {
+          /* keep current metrics if the API isn't reachable */
+        }
+      }
+    })();
   }
 
   function selectCommand(nextCommand: string) {
