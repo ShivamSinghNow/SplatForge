@@ -24,7 +24,7 @@ from splatforge.scanning import load_scene
 from splatforge.sim import build_pick_task
 from splatforge.simulation import SimulationBackend, build_simulation_backend
 from splatforge.storage import Repository, build_repository
-from splatforge.variants import generate_variants
+from splatforge.variants import CurriculumGenerator, generate_curriculum, generate_variants
 
 
 class RunResult(BaseModel):
@@ -66,7 +66,21 @@ def run_practice_loop(
     for critique in failure_report.critic_outputs:
         repository.save("critic_outputs", critique)
 
-    variants = generate_variants(scene.scene_id, failure_report, max_variants)
+    curriculum_generator = CurriculumGenerator()
+    curriculum = generate_curriculum(
+        task=task,
+        report=failure_report,
+        max_variants=max_variants,
+        generator=curriculum_generator,
+    )
+    repository.save("curricula", curriculum)
+    variants = generate_variants(
+        scene.scene_id,
+        failure_report,
+        max_variants,
+        task=task,
+        generator=curriculum_generator,
+    )
     for variant in variants:
         repository.save("variants", variant)
 
