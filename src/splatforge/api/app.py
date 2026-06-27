@@ -15,6 +15,7 @@ from splatforge.api.schemas import (
 )
 from splatforge.orchestrator import run_practice_loop
 from splatforge.simulation import list_simulation_backends
+from splatforge.storage import build_repository
 
 RUNS: dict[str, RunSummary] = {}
 
@@ -70,6 +71,15 @@ def create_app() -> FastAPI:
     @api.get("/facts")
     def facts(scene: str = "mug_table") -> dict[str, object]:
         return fact_statuses(scene).model_dump()
+
+    @api.get("/failures/similar")
+    def similar_failures(query: str, limit: int = 5) -> dict[str, object]:
+        repository = build_repository()
+        records = repository.query_similar_failures(query=query, limit=limit)
+        return {
+            "query": query,
+            "results": [record.model_dump(mode="json") for record in records],
+        }
 
     @api.post("/runs", response_model=RunSummary)
     def create_run(request: RunRequest) -> RunSummary:
