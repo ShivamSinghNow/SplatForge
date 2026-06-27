@@ -19,6 +19,7 @@ from __future__ import annotations
 import importlib.util
 import math
 import os
+from typing import Any
 
 from splatforge.models import (
     AttemptStatus,
@@ -42,19 +43,40 @@ _GRASP_RADIUS = 0.045
 _LIFT_TRAVEL_M = 0.30
 
 
-def _build_mjcf(mug_x: float, mug_y: float) -> str:
+def _build_mjcf(
+    mug_x: float,
+    mug_y: float,
+    mug_yaw_deg: float = 0.0,
+    occluder: dict[str, Any] | None = None,
+) -> str:
     mug_z = _MUG_HALF_HEIGHT  # rest on the table plane (z = 0)
+    half = math.radians(mug_yaw_deg) / 2.0
+    mug_quat = f"{math.cos(half)} 0 0 {math.sin(half)}"  # yaw about z
+
+    occluder_xml = ""
+    if occluder and occluder.get("enabled"):
+        ox = mug_x + float(occluder.get("offset_x_m", 0.04))
+        oy = mug_y + float(occluder.get("offset_y_m", 0.0))
+        # Visual occlusion obstacle, non-colliding: it blocks the camera/critic view
+        # ("occlusion practice") without perturbing the grasp physics.
+        occluder_xml = (
+            f'\n    <body name="occluder" pos="{ox} {oy} 0.03">'
+            f'\n      <geom name="occluder_geom" type="box" size="0.025 0.025 0.03"'
+            f' rgba="0.6 0.4 0.2 1" contype="0" conaffinity="0"/>'
+            f"\n    </body>"
+        )
+
     return f"""
 <mujoco model="splatforge_pick">
   <option timestep="0.002" gravity="0 0 -9.81"/>
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1"/>
     <geom name="table" type="plane" size="1 1 0.1" rgba="0.8 0.8 0.82 1"/>
-    <body name="mug" pos="{mug_x} {mug_y} {mug_z}">
+    <body name="mug" pos="{mug_x} {mug_y} {mug_z}" quat="{mug_quat}">
       <freejoint name="mug_free"/>
       <geom name="mug_geom" type="cylinder" size="{_MUG_RADIUS} {_MUG_HALF_HEIGHT}"
             rgba="0.2 0.5 0.9 1" mass="0.4" contype="1" conaffinity="1"/>
-    </body>
+    </body>{occluder_xml}
     <body name="gripper" pos="0 0 0">
       <joint name="gx" type="slide" axis="1 0 0" damping="60"/>
       <joint name="gy" type="slide" axis="0 1 0" damping="60"/>
@@ -118,10 +140,14 @@ class MujocoSimulationBackend(SimulationBackend):
         gripper_width = float(params.get("gripper_width_m", 0.06))
         grasp_radius = max(0.02, gripper_width * 0.75)
 
-        # Mug placement in the sim, matched to the splat scene when provided.
+        # Mug placement + curriculum perturbations (A2), matched to the scene when provided.
         mug_x, mug_y = _scene_mug_xy(scene)
+        mug_yaw_deg = float(scene.metadata.get("mug_yaw_deg", 0.0))
+        occluder = scene.metadata.get("occluder")
 
-        model = mujoco.MjModel.from_xml_string(_build_mjcf(mug_x, mug_y))
+        model = mujoco.MjModel.from_xml_string(
+            _build_mjcf(mug_x, mug_y, mug_yaw_deg=mug_yaw_deg, occluder=occluder)
+        )
         data = mujoco.MjData(model)
 
         ax = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "ax")
@@ -184,6 +210,8 @@ class MujocoSimulationBackend(SimulationBackend):
                 "lift_threshold_m": lift_threshold,
                 "grasp_distance_m": round(grasp_dist, 4),
                 "grasp_radius_m": round(grasp_radius, 4),
+                "mug_yaw_deg": round(mug_yaw_deg, 2),
+                "occluder_present": bool(occluder and occluder.get("enabled")),
                 "grasped": grasped,
                 "success": success,
             },
