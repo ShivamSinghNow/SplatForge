@@ -64,6 +64,7 @@ def run_practice_loop(
     )
     failure_report = council.review(initial_episode)
     repository.save("critiques", failure_report)
+    repository.index_failure(failure_report)
     for critique in failure_report.critic_outputs:
         repository.save("critic_outputs", critique)
 
@@ -71,6 +72,10 @@ def run_practice_loop(
     curriculum = generate_curriculum(
         task=task,
         report=failure_report,
+        recent_failures=[
+            FailureReport.model_validate(document)
+            for document in repository.find("critiques", limit=5)
+        ],
         max_variants=max_variants,
         generator=curriculum_generator,
     )
