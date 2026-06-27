@@ -87,6 +87,32 @@ class RunSummary(BaseModel):
     log_collections: list[str]
 
 
+class RerunRecordingMetadata(BaseModel):
+    run_id: str
+    exists: bool
+    path: str | None = None
+    viewer_url: str | None = None
+    download_url: str | None = None
+    file_url: str | None = None
+    generated_at: str | None = None
+    sdk_version: str = "unknown"
+    viewer_mode: str = "embedded"
+    frame_count: int = 0
+    jump_frames: dict[str, int] = Field(default_factory=dict)
+    score_before: float = 0.0
+    score_after: float = 0.0
+    scene: str | None = None
+    task: str | None = None
+
+
+class RerunHealthResponse(BaseModel):
+    sdk_installed: bool
+    sdk_version: str
+    viewer_mode: str
+    output_path: str
+    recordings_count: int
+
+
 def summarize_run(result: RunResult, run_id: str | None = None) -> RunSummary:
     run_id = run_id or f"run_{uuid4().hex[:12]}"
     initial = result.initial_episode
@@ -201,11 +227,31 @@ def scene_options(root: Path = Path("demo/scenes")) -> list[SceneOption]:
     ]
 
 
+def task_options() -> list[TaskOption]:
+    return [
+        TaskOption(
+            id="pick_mug",
+            name="Pick Mug",
+            description="Pick up a mug from the tabletop and move it to the goal zone.",
+        )
+    ]
+
+
 def integration_statuses() -> list[IntegrationStatus]:
     scene = load_scene("mug_table")
     splat_fact = verify_splat_asset(scene)
     h100_fact = verify_h100_droplet()
+    from splatforge.rerun.service import rerun_sdk_installed
+
+    rerun_ready = rerun_sdk_installed()
     return [
+        IntegrationStatus(
+            id="rerun",
+            label="Rerun",
+            configured=rerun_ready,
+            purpose="Primary 3D robotics telemetry viewer for rollouts, critics, and policy timelines.",
+            next_step="rerun-sdk is ready — generate a recording from any training run.",
+        ),
         IntegrationStatus(
             id="gemini",
             label="Gemini",

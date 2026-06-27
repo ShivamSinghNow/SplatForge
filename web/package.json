@@ -11,6 +11,7 @@
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
+    "@rerun-io/web-viewer": "^0.33.1",
     "@types/three": "^0.185.0",
     "@vitejs/plugin-react": "latest",
     "lucide-react": "^1.21.0",

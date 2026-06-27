@@ -46,17 +46,6 @@ def build_success_rate_series(repository: Repository) -> SuccessRateSeries:
     )
 
 
-def demo_success_rate_series() -> SuccessRateSeries:
-    return SuccessRateSeries(
-        points=[
-            SuccessRatePoint(index=1, success_rate=37.0, label="initial attempt"),
-            SuccessRatePoint(index=2, success_rate=78.0, label="after retest"),
-        ],
-        current_rate=78.0,
-        source="demo",
-    )
-
-
 def merge_run_summary_point(
     series: SuccessRateSeries,
     summary: dict[str, Any],
