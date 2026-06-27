@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.2", "ruff>=0.5"]
+train = ["torch>=2.2", "peft>=0.11"]
 
 [project.scripts]
 splatforge = "splatforge.cli:main"
