@@ -1,0 +1,14 @@
+{
+  "scene_id": "scene_mug_table",
+  "name": "Mug on tabletop",
+  "splat_asset": "demo/assets/mug_table.splat",
+  "physics_proxy": "demo/assets/mug_table_proxy.json",
+  "robot_frame": "table",
+  "metadata": {
+    "scan_source": "phone_video_placeholder",
+    "task_notes": "Replace placeholder assets with a real Gaussian Splat export after scanning.",
+    "public_fallback_splat": "demo/assets/public_truck_reconstruction_7000.ply",
+    "public_fallback_source": "https://huggingface.co/datasets/Voxel51/gaussian_splatting",
+    "objects": ["mug", "table", "optional_occluder_block"]
+  }
+}
