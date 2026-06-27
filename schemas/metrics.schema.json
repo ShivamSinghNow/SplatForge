@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SplatForge Iteration Metrics",
+  "description": "Written per loop iteration to runs/<run_id>/iter_<NN>/metrics.json. Read by the dashboard (B5) to draw the success curve.",
+  "type": "object",
+  "required": ["iteration", "run_id", "success_rate", "n_rollouts", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "iteration": { "type": "integer", "minimum": 0 },
+    "run_id": { "type": "string" },
+    "success_rate": { "type": "number", "minimum": 0, "maximum": 1, "description": "ground-truth success fraction over n_rollouts" },
+    "n_rollouts": { "type": "integer", "minimum": 1 },
+    "adapter_path": { "type": "string", "description": "path to the LoRA adapter used this iteration" },
+    "curriculum_ids": { "type": "array", "items": { "type": "string" } },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

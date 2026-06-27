@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SplatForge Curriculum Spec",
+  "description": "Scene-variation spec emitted by the curriculum generator (B2) and consumed by the sim (A2).",
+  "type": "object",
+  "required": ["id", "task", "object_pose", "difficulty", "prompt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "description": "Unique curriculum id, e.g. curr_0007" },
+    "task": { "type": "string", "enum": ["pick_up_mug"] },
+    "object_pose": {
+      "type": "object",
+      "required": ["x", "y", "z", "yaw_deg"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number", "description": "meters, relative to rest pose" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "yaw_deg": { "type": "number" }
+      }
+    },
+    "lighting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "brightness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "direction_deg": { "type": "number" }
+      }
+    },
+    "occluder": {
+      "type": "object",
+      "required": ["present"],
+      "additionalProperties": false,
+      "properties": {
+        "present": { "type": "boolean" },
+        "type": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+    "prompt": { "type": "string" }
+  }
+}
