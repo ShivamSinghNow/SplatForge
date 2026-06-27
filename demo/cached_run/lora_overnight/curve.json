@@ -1,0 +1,27 @@
+[
+  {
+    "iteration": 0,
+    "success_rate": 0.4133,
+    "policy_version": "lora_v0"
+  },
+  {
+    "iteration": 1,
+    "success_rate": 0.8267,
+    "policy_version": "lora_v1"
+  },
+  {
+    "iteration": 2,
+    "success_rate": 0.82,
+    "policy_version": "lora_v2"
+  },
+  {
+    "iteration": 3,
+    "success_rate": 0.8333,
+    "policy_version": "lora_v3"
+  },
+  {
+    "iteration": 4,
+    "success_rate": 0.84,
+    "policy_version": "lora_v4"
+  }
+]
