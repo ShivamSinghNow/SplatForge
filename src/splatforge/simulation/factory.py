@@ -3,6 +3,7 @@ from __future__ import annotations
 from splatforge.simulation.base import SimulationBackend
 from splatforge.simulation.dry_run import DryRunSimulationBackend
 from splatforge.simulation.isaac import IsaacSimulationBackend
+from splatforge.simulation.mujoco_sim import MujocoSimulationBackend
 
 
 def list_simulation_backends() -> list[dict[str, str | bool]]:
@@ -18,4 +19,10 @@ def build_simulation_backend(name: str) -> SimulationBackend:
 
 
 def _available_backend_instances() -> list[SimulationBackend]:
-    return [DryRunSimulationBackend(), IsaacSimulationBackend()]
+    # mujoco is the default real physics backend (the success signal lives here);
+    # dry-run stays for UI dev; isaac is the optional GPU/GR00T stretch.
+    return [
+        MujocoSimulationBackend(),
+        DryRunSimulationBackend(),
+        IsaacSimulationBackend(),
+    ]

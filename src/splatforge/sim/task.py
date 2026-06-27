@@ -4,13 +4,15 @@ from splatforge.models import AttemptStatus, Observation, RobotAction, TaskSpec
 
 
 def build_pick_task(task_name: str) -> TaskSpec:
-    if task_name != "pick_mug":
+    # Contract task id is "pick_up_mug"; keep "pick_mug" as a back-compat alias
+    # for the dry-run scaffold.
+    if task_name not in ("pick_up_mug", "pick_mug"):
         raise ValueError(f"Unsupported task for MVP: {task_name}")
 
     return TaskSpec(
-        name="pick_mug",
+        name="pick_up_mug",
         object_name="mug",
-        goal="move mug to marked goal zone",
+        goal="lift the mug at least 0.10 m off the table",
     )
 
 
