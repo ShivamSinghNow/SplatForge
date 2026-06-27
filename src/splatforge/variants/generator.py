@@ -1,32 +1,40 @@
 from __future__ import annotations
 
-from splatforge.models import FailureReport, PracticeVariant
+from splatforge.contracts.curriculum import CurriculumSpec
+from splatforge.models import FailureReport, PracticeVariant, TaskSpec
+from splatforge.variants.curriculum import CurriculumGenerator
 
 
-VARIANT_TEMPLATES: dict[str, dict[str, float | int | bool | str]] = {
-    "lower_approach_height": {"approach_height_m_delta": -0.04},
-    "rotate_object_for_clearer_grasp": {"object_yaw_deg": 30.0},
-    "add_handle_occlusion_practice": {"occluder_enabled": True, "occluder_offset_x_m": 0.04},
-    "increase_grasp_force": {"grasp_force_delta": 0.1},
-    "change_camera_angle": {"camera_yaw_deg": 20.0},
-}
+def generate_curriculum(
+    task: TaskSpec,
+    report: FailureReport,
+    recent_failures: list[FailureReport] | None = None,
+    max_variants: int = 3,
+    generator: CurriculumGenerator | None = None,
+) -> CurriculumSpec:
+    curriculum_generator = generator or CurriculumGenerator()
+    return curriculum_generator.generate(
+        task=task,
+        report=report,
+        recent_failures=recent_failures,
+        max_variations=max_variants,
+    )
 
 
 def generate_variants(
     scene_id: str,
     report: FailureReport,
     max_variants: int,
+    task: TaskSpec | None = None,
+    recent_failures: list[FailureReport] | None = None,
+    generator: CurriculumGenerator | None = None,
 ) -> list[PracticeVariant]:
-    variants: list[PracticeVariant] = []
-    for label in report.suggested_variants[:max_variants]:
-        transform = VARIANT_TEMPLATES.get(label, {"note": "manual_variant_required"})
-        variants.append(
-            PracticeVariant(
-                scene_id=scene_id,
-                source_episode_id=report.episode_id,
-                label=label,
-                transform=transform,
-                reason=report.root_cause,
-            )
-        )
-    return variants
+    curriculum_generator = generator or CurriculumGenerator()
+    spec = generate_curriculum(
+        task=task or TaskSpec(name="pick_mug", object_name="mug", goal="pick"),
+        report=report,
+        recent_failures=recent_failures,
+        max_variants=max_variants,
+        generator=curriculum_generator,
+    )
+    return curriculum_generator.to_practice_variants(scene_id, spec)

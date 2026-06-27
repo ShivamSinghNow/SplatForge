@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Brain,
   Check,
@@ -16,7 +16,9 @@ import {
   Settings,
   Terminal,
 } from 'lucide-react';
+import { SuccessRateChart } from './components/charts/SuccessRateChart';
 import { SplatForgePreview } from './components/preview/SplatForgePreview';
+import { createRun, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
 import { RunProvider, useRun } from './lib/hooks/useRun';
 import { getDemoControlRoomState } from './lib/services/demoSplatForgeService';
 import type { CriticResult, IntegrationStatus, LoopStep, LoopStepId, StepStatus, TrainingWorld } from './lib/types/splatforge';
@@ -45,17 +47,69 @@ export default function App() {
 }
 
 function SplatForgeApp() {
-  const { currentStep, phase, loading, submittedCommand, startLoop, setStep, resetLoop } = useRun();
+  const { currentStep, phase, loading, submittedCommand, startLoop, replayCachedRun, setStep, resetLoop } =
+    useRun();
   const [activeSection, setActiveSection] = useState<SectionId>('control');
   const [command, setCommand] = useState(state.task.instruction);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [notice, setNotice] = useState('Ready');
+  const [apiOnline, setApiOnline] = useState(false);
+  const [metrics, setMetrics] = useState<SuccessRateSeries>({
+    points: [
+      { index: 1, success_rate: state.run.scoreBefore, label: 'initial attempt' },
+      { index: 2, success_rate: state.run.scoreAfter, label: 'after retest' },
+    ],
+    current_rate: state.run.scoreAfter,
+    source: 'demo',
+  });
 
   const steps = useMemo(() => buildLoopSteps(currentStep), [currentStep]);
   const activeStep = steps.find((step) => step.status === 'active') ?? steps[0];
-  const improvement = state.run.scoreAfter - state.run.scoreBefore;
+  const improvement = metrics.current_rate - (metrics.points[0]?.success_rate ?? state.run.scoreBefore);
 
-  function runCommand(nextCommand = command) {
+  useEffect(() => {
+    void (async () => {
+      try {
+        await fetchHealth();
+        setApiOnline(true);
+        const series = await fetchSuccessRate();
+        setMetrics(series);
+      } catch {
+        setApiOnline(false);
+      }
+    })();
+  }, []);
+
+  async function refreshMetrics(live = false) {
+    try {
+      const series = await fetchSuccessRate(live);
+      setMetrics(series);
+    } catch {
+      setMetrics({
+        points: [
+          { index: 1, success_rate: state.run.scoreBefore, label: 'initial attempt' },
+          { index: 2, success_rate: state.run.scoreAfter, label: 'after retest' },
+        ],
+        current_rate: state.run.scoreAfter,
+        source: 'demo',
+      });
+    }
+  }
+
+  async function runCommand(nextCommand = command) {
+    if (apiOnline) {
+      setNotice('Running live loop...');
+      try {
+        const summary = await createRun('mug_table', 'pick_mug', 'dry-run');
+        await refreshMetrics(true);
+        replayCachedRun();
+        setNotice(summary.phase);
+        setActiveSection('runs');
+        return;
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'Live run failed');
+      }
+    }
     startLoop(nextCommand);
     setNotice('Run started');
     setActiveSection('runs');
@@ -88,9 +142,9 @@ function SplatForgeApp() {
   }
 
   function openReplay() {
+    replayCachedRun();
     setActiveSection('memory');
-    setStep('critique');
-    setNotice('Replay memory opened');
+    setNotice('Replaying cached run');
   }
 
   return (
@@ -166,12 +220,20 @@ function SplatForgeApp() {
 
           <aside className="right-panel">
             <Panel title="Run">
+              <SuccessRateChart
+                animate={phase === 'complete'}
+                currentRate={metrics.current_rate}
+                points={metrics.points}
+              />
               <KeyValue label="Phase" value={activeStep.label} />
               <KeyValue label="Policy" value={state.run.adapterVersion} />
-              <KeyValue label="Score" value={`${state.run.scoreBefore}% -> ${state.run.scoreAfter}%`} />
+              <KeyValue
+                label="Score"
+                value={`${metrics.points[0]?.success_rate ?? state.run.scoreBefore}% -> ${metrics.current_rate}%`}
+              />
               <div className="score-line">
-                <span style={{ width: `${state.run.scoreBefore}%` }} />
-                <strong style={{ width: `${state.run.scoreAfter}%` }} />
+                <span style={{ width: `${metrics.points[0]?.success_rate ?? state.run.scoreBefore}%` }} />
+                <strong style={{ width: `${metrics.current_rate}%` }} />
               </div>
             </Panel>
 

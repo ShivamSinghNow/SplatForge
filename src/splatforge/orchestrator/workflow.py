@@ -9,6 +9,7 @@ from splatforge.critics import (
     MiniMaxCritic,
     MonjuCritic,
     PhysicsCritic,
+    VlmCritic,
 )
 from splatforge.models import (
     AttemptStatus,
@@ -24,7 +25,7 @@ from splatforge.scanning import load_scene
 from splatforge.sim import build_pick_task
 from splatforge.simulation import SimulationBackend, build_simulation_backend
 from splatforge.storage import Repository, build_repository
-from splatforge.variants import generate_variants
+from splatforge.variants import CurriculumGenerator, generate_curriculum, generate_variants
 
 
 class RunResult(BaseModel):
@@ -59,14 +60,33 @@ def run_practice_loop(
         return RunResult(initial_episode=initial_episode)
 
     council = CriticCouncil(
-        [PhysicsCritic(), GeminiCritic(), MiniMaxCritic(), GemmaCritic(), MonjuCritic()]
+        [PhysicsCritic(), GeminiCritic(), VlmCritic(), MiniMaxCritic(), GemmaCritic(), MonjuCritic()]
     )
     failure_report = council.review(initial_episode)
     repository.save("critiques", failure_report)
+    repository.index_failure(failure_report)
     for critique in failure_report.critic_outputs:
         repository.save("critic_outputs", critique)
 
-    variants = generate_variants(scene.scene_id, failure_report, max_variants)
+    curriculum_generator = CurriculumGenerator()
+    curriculum = generate_curriculum(
+        task=task,
+        report=failure_report,
+        recent_failures=[
+            FailureReport.model_validate(document)
+            for document in repository.find("critiques", limit=5)
+        ],
+        max_variants=max_variants,
+        generator=curriculum_generator,
+    )
+    repository.save("curricula", curriculum)
+    variants = generate_variants(
+        scene.scene_id,
+        failure_report,
+        max_variants,
+        task=task,
+        generator=curriculum_generator,
+    )
     for variant in variants:
         repository.save("variants", variant)
 
