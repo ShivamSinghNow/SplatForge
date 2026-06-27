@@ -9,6 +9,7 @@ from splatforge.critics import (
     MiniMaxCritic,
     MonjuCritic,
     PhysicsCritic,
+    VlmCritic,
 )
 from splatforge.models import (
     AttemptStatus,
@@ -59,7 +60,7 @@ def run_practice_loop(
         return RunResult(initial_episode=initial_episode)
 
     council = CriticCouncil(
-        [PhysicsCritic(), GeminiCritic(), MiniMaxCritic(), GemmaCritic(), MonjuCritic()]
+        [PhysicsCritic(), GeminiCritic(), VlmCritic(), MiniMaxCritic(), GemmaCritic(), MonjuCritic()]
     )
     failure_report = council.review(initial_episode)
     repository.save("critiques", failure_report)
