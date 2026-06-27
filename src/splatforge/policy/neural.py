@@ -12,6 +12,7 @@ is NOT imported by `splatforge.policy.__init__`, so the core package stays light
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import torch
@@ -56,13 +57,15 @@ def build_lora_policy(r: int = 8, alpha: int = 16):
 class NeuralGraspPolicy:
     """Wraps a (LoRA-adapted) GraspNet and exposes `predict(obs) -> (x, y)`."""
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: nn.Module, r: int = 8, alpha: int = 16) -> None:
         self.model = model
+        self.r = r
+        self.alpha = alpha
         self.model.eval()
 
     @classmethod
     def new_lora(cls, r: int = 8, alpha: int = 16) -> NeuralGraspPolicy:
-        return cls(build_lora_policy(r=r, alpha=alpha))
+        return cls(build_lora_policy(r=r, alpha=alpha), r=r, alpha=alpha)
 
     def predict(self, obs: tuple[float, float], use_adapter: bool = True) -> tuple[float, float]:
         tensor = torch.tensor([list(obs)], dtype=torch.float32)
@@ -78,14 +81,21 @@ class NeuralGraspPolicy:
         return float(out[0]), float(out[1])
 
     def save(self, path: str | Path) -> None:
+        # Save the FULL model state (random base + LoRA), not just the adapter:
+        # the base is randomly initialised, so the adapter alone is meaningless on
+        # reload. Also keep peft's adapter export for inspection/compat.
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
+        torch.save(self.model.state_dict(), path / "policy.pt")
+        (path / "lora.json").write_text(json.dumps({"r": self.r, "alpha": self.alpha}))
         self.model.save_pretrained(str(path))
 
     @classmethod
     def load(cls, path: str | Path) -> NeuralGraspPolicy:
-        from peft import PeftModel
-
-        base = GraspNet()
-        model = PeftModel.from_pretrained(base, str(path))
-        return cls(model)
+        path = Path(path)
+        meta_path = path / "lora.json"
+        meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"r": 8, "alpha": 16}
+        r, alpha = int(meta["r"]), int(meta["alpha"])
+        model = build_lora_policy(r=r, alpha=alpha)
+        model.load_state_dict(torch.load(path / "policy.pt", map_location="cpu"))
+        return cls(model, r=r, alpha=alpha)

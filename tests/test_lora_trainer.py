@@ -38,12 +38,17 @@ def test_lora_training_reduces_loss_and_adapter_round_trips(tmp_path) -> None:
     policy, history = train_lora_policy(obs, labels, epochs=200, lr=1e-2, device="cpu")
     assert history[-1] < history[0]  # the adapter learned
 
+    before = policy.predict((0.08, 0.0), use_adapter=True)
     policy.save(tmp_path / "adapter")
     reloaded = NeuralGraspPolicy.load(tmp_path / "adapter")
-    # adapter-on prediction tracks the mug; adapter-off is the nominal (0,0) baseline
-    on = reloaded.predict((0.08, 0.0), use_adapter=True)
+    after = reloaded.predict((0.08, 0.0), use_adapter=True)
+
+    # round-trip is exact: the random base + adapter are both persisted (regression
+    # guard — saving only the peft adapter silently corrupts a random-base model)
+    assert abs(after[0] - before[0]) < 1e-4 and abs(after[1] - before[1]) < 1e-4
+    # adapter-on tracks the mug; adapter-off is the nominal (0,0) baseline
     off = reloaded.predict((0.08, 0.0), use_adapter=False)
-    assert abs(on[0] - 0.08) < abs(off[0] - 0.08)
+    assert abs(after[0] - 0.08) < abs(off[0] - 0.08)
     assert abs(off[0]) < 1e-3 and abs(off[1]) < 1e-3
 
 
