@@ -1,0 +1,3 @@
+passed=True  difficulty=easy  confidence=1.0
+rationale: The robot successfully grasped the mug with a grasp distance of 0.0m and lifted it to a height of 0.3465m, which is well above the required 0.1m threshold. There were no occluders present and no rotation was applied, making this a straightforward successful lift.
+evidence: ['mug_lift_m of 0.3465m is greater than lift_threshold_m of 0.1m', 'grasp_distance_m is 0.0m', 'grasped status is true']
