@@ -112,6 +112,11 @@ class MujocoSimulationBackend(SimulationBackend):
         offset_y = float(params.get("pregrasp_offset_y_m", 0.0))
         approach_height = float(params.get("approach_height_m", 0.30))
         lift_threshold = float(getattr(task, "lift_threshold_m", DEFAULT_LIFT_THRESHOLD_M))
+        # Grasp tolerance scales with how wide the gripper opens: a better-trained
+        # policy that opens wider catches more off-center mugs (default 0.06 -> 0.045,
+        # matching the A1 fixed radius).
+        gripper_width = float(params.get("gripper_width_m", 0.06))
+        grasp_radius = max(0.02, gripper_width * 0.75)
 
         # Mug placement in the sim, matched to the splat scene when provided.
         mug_x, mug_y = _scene_mug_xy(scene)
@@ -133,13 +138,22 @@ class MujocoSimulationBackend(SimulationBackend):
 
         mug_rest_z = float(data.body("mug").xpos[2])
 
-        target_x = mug_x + offset_x
-        target_y = mug_y + offset_y
+        # Where the policy aims: an explicit absolute target (the harness uses this to
+        # model imperfect perception) if provided, else track the mug with an offset.
+        target_override_x = policy.parameters.get("grasp_target_x_m")
+        target_override_y = policy.parameters.get("grasp_target_y_m")
+        if target_override_x is not None and target_override_y is not None:
+            target_x = float(target_override_x)
+            target_y = float(target_override_y)
+        else:
+            target_x = mug_x + offset_x
+            target_y = mug_y + offset_y
         grasp_z = _MUG_HALF_HEIGHT  # palm at mug mid-height
 
         if forced_failure:
             # Explicit miss for generating a known-bad rollout.
-            target_x = mug_x + _GRASP_RADIUS + 0.05
+            target_x = mug_x + grasp_radius + 0.05
+            target_y = mug_y
 
         # 1. settle, 2. align over target, 3. descend to mug
         _move(mujoco, model, data, (mug_x, mug_y, approach_height), 150, act_ids)
@@ -150,7 +164,7 @@ class MujocoSimulationBackend(SimulationBackend):
         gripper_xy = data.body("gripper").xpos
         mug_xy = data.body("mug").xpos
         grasp_dist = math.hypot(gripper_xy[0] - mug_xy[0], gripper_xy[1] - mug_xy[1])
-        grasped = grasp_dist <= _GRASP_RADIUS
+        grasped = grasp_dist <= grasp_radius
         if grasped:
             data.eq_active[eq_grasp] = 1
         _move(mujoco, model, data, (target_x, target_y, grasp_z), 100, act_ids)
@@ -169,6 +183,7 @@ class MujocoSimulationBackend(SimulationBackend):
                 "mug_lift_m": round(mug_lift, 4),
                 "lift_threshold_m": lift_threshold,
                 "grasp_distance_m": round(grasp_dist, 4),
+                "grasp_radius_m": round(grasp_radius, 4),
                 "grasped": grasped,
                 "success": success,
             },
