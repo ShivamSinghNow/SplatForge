@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { SuccessRateChart } from './components/charts/SuccessRateChart';
 import { SplatForgePreview } from './components/preview/SplatForgePreview';
-import { createRun, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
+import { createRun, fetchCachedCurve, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
 import { RunProvider, useRun } from './lib/hooks/useRun';
 import { getDemoControlRoomState } from './lib/services/demoSplatForgeService';
 import type { CriticResult, IntegrationStatus, LoopStep, LoopStepId, StepStatus, TrainingWorld } from './lib/types/splatforge';
@@ -72,8 +72,12 @@ function SplatForgeApp() {
       try {
         await fetchHealth();
         setApiOnline(true);
-        const series = await fetchSuccessRate();
-        setMetrics(series);
+        // Prefer the real banked curve (A7); fall back to the live episodes series.
+        try {
+          setMetrics(await fetchCachedCurve('overnight'));
+        } catch {
+          setMetrics(await fetchSuccessRate());
+        }
       } catch {
         setApiOnline(false);
       }
@@ -142,9 +146,17 @@ function SplatForgeApp() {
   }
 
   function openReplay() {
-    replayCachedRun();
-    setActiveSection('memory');
-    setNotice('Replaying cached run');
+    void (async () => {
+      try {
+        // Animate the real banked curve when replaying.
+        setMetrics(await fetchCachedCurve('overnight'));
+      } catch {
+        /* keep current metrics if the cache isn't being served */
+      }
+      replayCachedRun();
+      setActiveSection('memory');
+      setNotice('Replaying cached run');
+    })();
   }
 
   return (

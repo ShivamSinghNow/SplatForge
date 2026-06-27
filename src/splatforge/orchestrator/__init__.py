@@ -1,4 +1,9 @@
-from splatforge.orchestrator.cached_run import CachedIteration, CachedRun, load_cached_run
+from splatforge.orchestrator.cached_run import (
+    CachedIteration,
+    CachedRun,
+    cached_run_series,
+    load_cached_run,
+)
 from splatforge.orchestrator.evaluation import (
     RolloutRecord,
     SuccessRateReport,
@@ -22,6 +27,7 @@ __all__ = [
     "CachedRun",
     "ImprovementResult",
     "IterationCheckpoint",
+    "cached_run_series",
     "load_cached_run",
     "ReplayBuffer",
     "RolloutRecord",
