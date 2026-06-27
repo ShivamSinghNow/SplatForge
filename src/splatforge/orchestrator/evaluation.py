@@ -15,6 +15,7 @@ import random
 from pydantic import BaseModel
 
 from splatforge.models import PolicyVersion, SceneSpec, TaskSpec
+from splatforge.orchestrator.replay import ReplayBuffer
 from splatforge.simulation.base import SimulationBackend
 
 
@@ -48,10 +49,14 @@ def evaluate_policy(
     n_rollouts: int = 30,
     spread_m: float = 0.10,
     seed: int = 0,
+    replay: ReplayBuffer | None = None,
+    run_id: str = "adhoc",
+    iteration: int = 0,
 ) -> SuccessRateReport:
     """Run `n_rollouts` displaced-mug rollouts and aggregate the success rate.
 
-    Deterministic for a given `seed` so a checkpoint's rate is reproducible.
+    Deterministic for a given `seed` so a checkpoint's rate is reproducible. When a
+    `replay` buffer is passed, every rollout is persisted as a trajectory (A4).
     """
     if n_rollouts < 1:
         raise ValueError("n_rollouts must be >= 1")
@@ -79,6 +84,9 @@ def evaluate_policy(
         metrics = episode.observation.physics_metrics
         success = bool(metrics["success"])
         successes += int(success)
+
+        if replay is not None:
+            replay.add_episode(episode, run_id=run_id, iteration=iteration, scene=scene_i)
         records.append(
             RolloutRecord(
                 index=i,

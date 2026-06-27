@@ -25,6 +25,7 @@ class AttemptStatus(str, Enum):
 class CriticName(str, Enum):
     PHYSICS = "physics"
     GEMINI = "gemini"
+    VLM = "vlm"
     MINIMAX = "minimax"
     GEMMA = "gemma"
     MONJU = "monju"

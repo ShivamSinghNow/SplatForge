@@ -15,6 +15,8 @@ from splatforge.api.schemas import (
 )
 from splatforge.orchestrator import run_practice_loop
 from splatforge.simulation import list_simulation_backends
+from splatforge.storage import build_repository
+from splatforge.storage.metrics import build_success_rate_series, demo_success_rate_series, merge_run_summary_point
 
 RUNS: dict[str, RunSummary] = {}
 
@@ -71,6 +73,25 @@ def create_app() -> FastAPI:
     def facts(scene: str = "mug_table") -> dict[str, object]:
         return fact_statuses(scene).model_dump()
 
+    @api.get("/failures/similar")
+    def similar_failures(query: str, limit: int = 5) -> dict[str, object]:
+        repository = build_repository()
+        records = repository.query_similar_failures(query=query, limit=limit)
+        return {
+            "query": query,
+            "results": [record.model_dump(mode="json") for record in records],
+        }
+
+    @api.get("/metrics/success-rate")
+    def success_rate(use_demo: bool = False) -> dict[str, object]:
+        if use_demo:
+            return demo_success_rate_series().model_dump()
+        repository = build_repository()
+        series = build_success_rate_series(repository)
+        if not series.points:
+            return demo_success_rate_series().model_dump()
+        return series.model_dump()
+
     @api.post("/runs", response_model=RunSummary)
     def create_run(request: RunRequest) -> RunSummary:
         try:
@@ -86,6 +107,20 @@ def create_app() -> FastAPI:
         summary = summarize_run(result)
         RUNS[summary.run_id] = summary
         return summary
+
+    @api.get("/metrics/success-rate/live")
+    def success_rate_live() -> dict[str, object]:
+        repository = build_repository()
+        series = build_success_rate_series(repository)
+        if not series.points and RUNS:
+            latest = next(reversed(RUNS.values()))
+            series = merge_run_summary_point(demo_success_rate_series(), latest.model_dump())
+        elif RUNS:
+            latest = next(reversed(RUNS.values()))
+            series = merge_run_summary_point(series, latest.model_dump())
+        if not series.points:
+            return demo_success_rate_series().model_dump()
+        return series.model_dump()
 
     @api.get("/runs/{run_id}", response_model=RunSummary)
     def get_run(run_id: str) -> RunSummary:

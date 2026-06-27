@@ -5,6 +5,7 @@ import os
 import re
 from typing import Any
 
+from splatforge.config import GEMINI_CRITIC_MODEL
 from splatforge.critics.base import Critic
 from splatforge.models import CriticName, Critique, Episode
 
@@ -12,7 +13,7 @@ from splatforge.models import CriticName, Critique, Episode
 class GeminiCritic(Critic):
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = model or GEMINI_CRITIC_MODEL
 
     @property
     def enabled(self) -> bool:
