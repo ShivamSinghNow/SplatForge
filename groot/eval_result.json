@@ -1,0 +1,11 @@
+{
+  "model": "nvidia/GR00T-N1.7-3B",
+  "dataset": "droid_sample",
+  "traj_id": 0,
+  "modality": [
+    "joint_position"
+  ],
+  "mse": 0.02964439666624742,
+  "mae": 0.118782158421618,
+  "plot": "groot_eval_plot.png"
+}

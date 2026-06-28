@@ -41,6 +41,17 @@ can"**, predicted a **40-step action chunk**:
 
 Evidence: [`inference_result.json`](inference_result.json), [`run_log.txt`](run_log.txt).
 
+### Open-loop validation (predicted vs ground truth)
+`eval_open_loop.py` runs GR00T open-loop across a real DROID episode and compares
+its predicted actions to the **expert ground truth**:
+
+- **joint MSE = 0.030, MAE = 0.119** ([`eval_result.json`](eval_result.json))
+- ![predicted vs ground truth](eval_plot.png) — across all 7 joints, GR00T's
+  predicted trajectory (orange) tracks the expert (blue) over ~140 steps.
+
+This is the "GR00T works *well*" artifact: the model's predictions are accurate,
+not just well-formed.
+
 ## Gotchas hit (so the next run is one-shot)
 1. **conda ToS** — recent Miniconda blocks env creation until channel ToS is
    accepted (`conda tos accept ...`). Handled in `setup_droplet.sh`.
