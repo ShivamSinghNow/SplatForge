@@ -1,0 +1,10 @@
+[
+  {
+    "id": "placeholder",
+    "name": "Placeholder cube — replace with your scan",
+    "src": "/splats/placeholder.splat",
+    "cameraUp": [0, 1, 0],
+    "cameraPosition": [2.2, 1.6, 2.2],
+    "cameraLookAt": [0, 0, 0]
+  }
+]

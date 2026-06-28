@@ -30,6 +30,11 @@ export function fetchSuccessRate(live = false) {
   return request<SuccessRateSeries>(live ? '/metrics/success-rate/live' : '/metrics/success-rate');
 }
 
+export function fetchCachedCurve(run = 'overnight') {
+  // The real banked run (A7): run='overnight' (scalar) or 'lora_overnight' (real LoRA).
+  return request<SuccessRateSeries>(`/metrics/cached-curve?run=${encodeURIComponent(run)}`);
+}
+
 export function createRun(scene: string, task: string, backend = 'dry-run') {
   return request<{ run_id: string; phase: string }>('/runs', {
     method: 'POST',

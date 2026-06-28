@@ -44,3 +44,15 @@ def test_committed_overnight_cache_is_a_real_climb() -> None:
     assert cached.final_success_rate >= 0.85  # believable, strong endpoint
     # critic reasoning was banked alongside each checkpoint
     assert any(point.critic.strip() for point in cached.points)
+
+
+def test_cached_run_series_drives_the_dashboard() -> None:
+    # B5: the banked curve converts to the dashboard's SuccessRateSeries (percent).
+    from splatforge.orchestrator import cached_run_series
+
+    series = cached_run_series(COMMITTED_CACHE)
+    assert series.source.startswith("cached:")
+    rates = [p.success_rate for p in series.points]
+    assert rates == sorted(rates)  # climbs
+    assert min(rates) >= 0.0 and max(rates) <= 100.0  # percentages, not fractions
+    assert series.current_rate == rates[-1] >= 85.0

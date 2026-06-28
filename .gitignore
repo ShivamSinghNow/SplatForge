@@ -42,3 +42,10 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.gstack/
+
+# Gaussian splat scans — large; drop your own in web/public/splats/.
+# Keep the manifest and the placeholder.
+web/public/splats/*
+!web/public/splats/scenes.json
+!web/public/splats/placeholder.splat

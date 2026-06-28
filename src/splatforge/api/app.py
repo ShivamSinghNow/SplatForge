@@ -13,7 +13,9 @@ from splatforge.api.schemas import (
     scene_options,
     summarize_run,
 )
-from splatforge.orchestrator import run_practice_loop
+from pathlib import Path
+
+from splatforge.orchestrator import cached_run_series, run_practice_loop
 from splatforge.simulation import list_simulation_backends
 from splatforge.storage import build_repository
 from splatforge.storage.metrics import build_success_rate_series, demo_success_rate_series, merge_run_summary_point
@@ -90,6 +92,16 @@ def create_app() -> FastAPI:
         series = build_success_rate_series(repository)
         if not series.points:
             return demo_success_rate_series().model_dump()
+        return series.model_dump()
+
+    @api.get("/metrics/cached-curve")
+    def cached_curve(run: str = "overnight") -> dict[str, object]:
+        # The real banked run (A7) — what the demo replays. run=overnight (scalar)
+        # or run=lora_overnight (real LoRA weight updates).
+        try:
+            series = cached_run_series(Path("demo/cached_run") / run)
+        except (FileNotFoundError, ValueError) as exc:
+            raise HTTPException(status_code=404, detail=f"No cached run: {run}") from exc
         return series.model_dump()
 
     @api.post("/runs", response_model=RunSummary)

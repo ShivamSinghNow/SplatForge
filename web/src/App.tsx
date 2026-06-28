@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { SuccessRateChart } from './components/charts/SuccessRateChart';
 import { SplatForgePreview } from './components/preview/SplatForgePreview';
-import { createRun, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
+import { fetchCachedCurve, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
 import { RunProvider, useRun } from './lib/hooks/useRun';
 import { getDemoControlRoomState } from './lib/services/demoSplatForgeService';
 import type { CriticResult, IntegrationStatus, LoopStep, LoopStepId, StepStatus, TrainingWorld } from './lib/types/splatforge';
@@ -53,6 +53,7 @@ function SplatForgeApp() {
   const [command, setCommand] = useState(state.task.instruction);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [notice, setNotice] = useState('Ready');
+  const [playToken, setPlayToken] = useState(0);
   const [apiOnline, setApiOnline] = useState(false);
   const [metrics, setMetrics] = useState<SuccessRateSeries>({
     points: [
@@ -72,47 +73,40 @@ function SplatForgeApp() {
       try {
         await fetchHealth();
         setApiOnline(true);
-        const series = await fetchSuccessRate();
-        setMetrics(series);
+        // Prefer the real banked curve (A7); fall back to the live episodes series.
+        try {
+          setMetrics(await fetchCachedCurve('overnight'));
+        } catch {
+          setMetrics(await fetchSuccessRate());
+        }
       } catch {
         setApiOnline(false);
       }
     })();
   }, []);
 
-  async function refreshMetrics(live = false) {
-    try {
-      const series = await fetchSuccessRate(live);
-      setMetrics(series);
-    } catch {
-      setMetrics({
-        points: [
-          { index: 1, success_rate: state.run.scoreBefore, label: 'initial attempt' },
-          { index: 2, success_rate: state.run.scoreAfter, label: 'after retest' },
-        ],
-        current_rate: state.run.scoreAfter,
-        source: 'demo',
-      });
+  function runCommand(nextCommand = command) {
+    // Demo strategy (A7): replay the banked real curve — instant + dramatic — rather
+    // than blocking ~27s on a live Gemini-critic run. The steps animate immediately.
+    if (nextCommand?.trim()) {
+      setCommand(nextCommand);
     }
-  }
-
-  async function runCommand(nextCommand = command) {
-    if (apiOnline) {
-      setNotice('Running live loop...');
-      try {
-        const summary = await createRun('mug_table', 'pick_mug', 'dry-run');
-        await refreshMetrics(true);
-        replayCachedRun();
-        setNotice(summary.phase);
-        setActiveSection('runs');
-        return;
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : 'Live run failed');
-      }
-    }
-    startLoop(nextCommand);
-    setNotice('Run started');
     setActiveSection('runs');
+    setNotice('Replaying self-improvement run...');
+    replayCachedRun();
+    setPlayToken((token) => token + 1);
+    void (async () => {
+      try {
+        setMetrics(await fetchCachedCurve('overnight'));
+        setNotice('Self-improvement run complete');
+      } catch {
+        try {
+          setMetrics(await fetchSuccessRate());
+        } catch {
+          /* keep current metrics if the API isn't reachable */
+        }
+      }
+    })();
   }
 
   function selectCommand(nextCommand: string) {
@@ -142,9 +136,18 @@ function SplatForgeApp() {
   }
 
   function openReplay() {
-    replayCachedRun();
-    setActiveSection('memory');
-    setNotice('Replaying cached run');
+    void (async () => {
+      try {
+        // Animate the real banked curve when replaying.
+        setMetrics(await fetchCachedCurve('overnight'));
+      } catch {
+        /* keep current metrics if the cache isn't being served */
+      }
+      replayCachedRun();
+      setPlayToken((token) => token + 1);
+      setActiveSection('memory');
+      setNotice('Replaying cached run');
+    })();
   }
 
   return (
@@ -198,8 +201,8 @@ function SplatForgeApp() {
           <section className="preview-column">
             <SplatForgePreview
               currentStep={currentStep}
+              playToken={playToken}
               policyVersion={state.run.adapterVersion}
-              run={state.run}
               task={state.task}
               world={state.world}
             />
@@ -453,7 +456,7 @@ function DetailSection({
   return (
     <DataGrid title="Control">
       <DataCard title="Current run">
-        <KeyValue label="Improvement" value={`+${improvement}%`} />
+        <KeyValue label="Improvement" value={`${improvement >= 0 ? '+' : ''}${improvement.toFixed(1)}%`} />
         <KeyValue label="Command" value={state.task.instruction} />
         <button className="primary-button" onClick={onRun} type="button">Run loop</button>
       </DataCard>

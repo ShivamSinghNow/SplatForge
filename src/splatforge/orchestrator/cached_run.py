@@ -69,3 +69,27 @@ def load_cached_run(run_dir: str | Path) -> CachedRun:
         initial_success_rate=points[0].success_rate,
         final_success_rate=points[-1].success_rate,
     )
+
+
+def cached_run_series(run_dir: str | Path):
+    """Convert a banked run into the dashboard's SuccessRateSeries (B5 wiring).
+
+    success_rate fractions (0-1) become percentages (0-100) so the chart, which
+    already expects percent, animates the real banked curve.
+    """
+    from splatforge.storage.metrics import SuccessRatePoint, SuccessRateSeries
+
+    cached = load_cached_run(run_dir)
+    points = [
+        SuccessRatePoint(
+            index=point.iteration + 1,
+            success_rate=round(point.success_rate * 100, 1),
+            label=f"iter {point.iteration}",
+        )
+        for point in cached.points
+    ]
+    return SuccessRateSeries(
+        points=points,
+        current_rate=points[-1].success_rate if points else 0.0,
+        source=f"cached:{cached.run_id}",
+    )
