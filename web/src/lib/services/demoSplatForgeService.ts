@@ -6,6 +6,7 @@ import {
   demoPolicies,
   demoTrainingRuns,
   demoWorlds,
+  grootInference,
 } from '../fixtures/splatforgeDemo';
 
 export function getDemoControlRoomState() {
@@ -27,5 +28,6 @@ export function getDemoControlRoomState() {
     policyAfter,
     integrations: demoIntegrations,
     commandExamples,
+    groot: grootInference,
   };
 }

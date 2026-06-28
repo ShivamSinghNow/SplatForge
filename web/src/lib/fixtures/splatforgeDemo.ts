@@ -312,3 +312,36 @@ export const commandExamples: CommandExample[] = [
   { id: 'train_successes', label: 'Train on successful trajectories from this scene.' },
   { id: 'explain_council', label: 'Explain what the AI council thinks went wrong.' },
 ];
+
+// Real GR00T N1.7 inference + open-loop eval run on the L40S droplet
+// (see groot/run_inference.py, groot/eval_open_loop.py, groot/eval_result.json).
+export const grootInference = {
+  model: 'GR00T N1.7 (3B)',
+  modelId: 'nvidia/GR00T-N1.7-3B',
+  params: '3.14B',
+  gpu: 'NVIDIA L40S (48GB)',
+  embodiment: 'OXE DROID (7-DoF)',
+  instruction: 'pick up the can',
+  horizon: 40,
+  actionHeads: [
+    { key: 'eef_9d', label: 'End-effector pose', shape: '1 × 40 × 9' },
+    { key: 'gripper_position', label: 'Gripper', shape: '1 × 40 × 1' },
+    { key: 'joint_position', label: 'Joint targets', shape: '1 × 40 × 7' },
+  ],
+  evalMse: 0.03,
+  evalMae: 0.119,
+  evalPlot: '/groot_eval_plot.png',
+  status: 'Inference verified · open-loop MSE 0.030',
+  comparison: [
+    { dim: 'Type', policy: 'Task-specific grasp policy', groot: 'Generalist foundation model' },
+    { dim: 'Size', policy: 'Small net + LoRA (MB)', groot: '3.14B params (~6 GB)' },
+    { dim: 'Trained by', policy: 'You — self-improvement loop', groot: 'NVIDIA — inference only' },
+    { dim: 'Inputs', policy: 'Sim state', groot: 'Vision + language + state' },
+    { dim: 'Self-improves', policy: 'Yes — zero human labels', groot: 'No — frozen checkpoint' },
+    { dim: 'Embodiment', policy: 'Our MuJoCo arm', groot: 'DROID / Franka 7-DoF' },
+    { dim: 'Measured by', policy: 'MuJoCo success rate (47%→93%)', groot: 'Action MSE vs expert (0.030)' },
+    { dim: 'Role in demo', policy: 'Drives the visible grasp + curve', groot: 'Frontier-capability spike' },
+  ],
+  comparisonNote:
+    'Complementary, not competing: our loop self-improves with zero human labels; GR00T is frontier breadth. Next step — fine-tune GR00T on the data our loop generates.',
+};

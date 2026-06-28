@@ -745,6 +745,105 @@ p {
   margin-top: 8px;
 }
 
+.groot-badge {
+  padding: 3px 9px;
+  color: var(--black-0);
+  background: var(--white);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.groot-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.groot-meta {
+  display: grid;
+  gap: 10px;
+}
+
+.groot-plot {
+  margin: 0;
+  padding: 10px;
+  background: var(--black-3);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.groot-plot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 460px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.groot-plot figcaption {
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.groot-compare {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--black-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.groot-compare h3 {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.compare-row span:not(.compare-dim) {
+  color: var(--text-2);
+}
+
+.compare-head {
+  border-top: 0;
+  color: var(--text);
+}
+
+.compare-head span {
+  font-weight: 750;
+  color: var(--text);
+}
+
+.compare-dim {
+  color: var(--text-3);
+}
+
+.compare-note {
+  margin-top: 12px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1180px) {
+  .groot-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1180px) {
   body {
     overflow: auto;
