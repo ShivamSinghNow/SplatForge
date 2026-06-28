@@ -40,6 +40,16 @@ const navItems: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
   { id: 'health', label: 'Health', icon: <Settings size={17} /> },
 ];
 
+// Parse the typed instruction to pick which object the robot grasps. Each maps
+// to a real, separately-rendered MuJoCo rollout (the arm reaches that object).
+function parseTarget(command: string): { clip: string; label: string } {
+  const c = (command || '').toLowerCase();
+  if (/\bpens?\b/.test(c)) return { clip: '/pick_pen.mp4', label: 'Grasp the pen' };
+  if (/note\s?books?|\bpads?\b|\bbooks?\b/.test(c)) return { clip: '/pick_notebook.mp4', label: 'Grasp the notebook' };
+  // can / soda / mug / anything else -> the can (the scene's hero object)
+  return { clip: '/pick_can.mp4', label: 'Grasp the can' };
+}
+
 export default function App() {
   return (
     <RunProvider>
@@ -52,11 +62,12 @@ function SplatForgeApp() {
   const { currentStep, phase, loading, submittedCommand, startLoop, replayCachedRun, setStep, resetLoop } =
     useRun();
   const [activeSection, setActiveSection] = useState<SectionId>('control');
-  const [command, setCommand] = useState(state.task.instruction);
+  const [command, setCommand] = useState('Pick up the soda can');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [notice, setNotice] = useState('Ready');
   const [playToken, setPlayToken] = useState(0);
   const [rolloutClip, setRolloutClip] = useState<string | undefined>(undefined);
+  const [rolloutLabel, setRolloutLabel] = useState('Grasp the can');
   const [apiOnline, setApiOnline] = useState(false);
   const [metrics, setMetrics] = useState<SuccessRateSeries>({
     points: [
@@ -91,11 +102,16 @@ function SplatForgeApp() {
   function runCommand(nextCommand = command) {
     // Demo strategy (A7): replay the banked real curve — instant + dramatic — rather
     // than blocking ~27s on a live Gemini-critic run. The steps animate immediately.
-    if (nextCommand?.trim()) {
-      setCommand(nextCommand);
+    const cmd = (nextCommand ?? command) || '';
+    if (cmd.trim()) {
+      setCommand(cmd);
     }
+    // The typed instruction selects which object to grasp -> a real rollout clip.
+    const { clip, label } = parseTarget(cmd);
+    setRolloutClip(clip);
+    setRolloutLabel(label);
     setActiveSection('runs');
-    setNotice('Replaying self-improvement run...');
+    setNotice(`Running self-improvement loop — ${label.toLowerCase()}...`);
     replayCachedRun();
     setPlayToken((token) => token + 1);
     void (async () => {
@@ -121,7 +137,6 @@ function SplatForgeApp() {
     switch (id) {
       case 'recover_grasp':
         // Flagship self-improvement run: replay the climbing curve + success grasp.
-        setRolloutClip(undefined);
         runCommand(example?.label);
         break;
       case 'harder_variations':
@@ -130,6 +145,7 @@ function SplatForgeApp() {
         setStep('curriculum');
         setActiveSection('worlds');
         setRolloutClip('/pick_can_hard.mp4');
+        setRolloutLabel('Harder variation — clutter');
         setNotice('Generating a harder variation — added clutter (bowl + block)...');
         setPlayToken((token) => token + 1);
         break;
@@ -138,6 +154,7 @@ function SplatForgeApp() {
         setStep('retest');
         setActiveSection('runs');
         setRolloutClip('/pick_fail.mp4');
+        setRolloutLabel('Original failed case');
         setNotice('Retesting the original failed case...');
         setPlayToken((token) => token + 1);
         break;
@@ -248,6 +265,8 @@ function SplatForgeApp() {
               playToken={playToken}
               policyVersion={state.run.adapterVersion}
               rolloutClip={rolloutClip}
+              rolloutLabel={rolloutLabel}
+              instruction={command}
               task={state.task}
               world={state.world}
             />
@@ -381,7 +400,7 @@ function CommandPanel({
               onRun();
             }
           }}
-          placeholder="Teach the robot to pick up the mug even when the handle is hidden..."
+          placeholder="Tell the robot what to grasp — e.g. 'pick up the pen' or 'pick up the notebook'"
           value={command}
         />
         <button className={voiceEnabled ? 'secondary-button voice-on' : 'secondary-button'} onClick={onToggleVoice} type="button">

@@ -2,13 +2,14 @@
 
 The scene mirrors the scanned splat: a round coffee table holding a soda can, a
 notebook, and a pen, with a small articulated arm bolted to the tabletop. The
-arm reaches over and grasps the can using real inverse kinematics (damped
-least-squares), welds on contact, and lifts -- success lifts the can, failure
-closes beside it.
+arm reaches over and grasps the *requested* object using real inverse kinematics
+(damped least-squares), welds on contact, and lifts it. Which object is grasped
+is selectable (can / pen / notebook), so the dashboard's text field ("pick up
+the pen") drives a different, real rollout per object.
 
-The end-effector follows a Cartesian path (over -> straight down -> straight
-up) solved per simulation step, so the gripper never dips through the table the
-way a raw joint-space move would.
+The end-effector follows a Cartesian path (over -> straight down -> straight up)
+solved per simulation step, so the gripper never dips through the table the way a
+raw joint-space move would, and an elbow-up posture keeps the arm links clear.
 
 Requires the render deps (mujoco, numpy, imageio/pillow); not imported by the
 package __init__.
@@ -26,29 +27,52 @@ TABLE_H = 0.40  # tabletop surface height
 TABLE_R = 0.42  # round tabletop radius
 TABLE_HZ = 0.018  # tabletop half-thickness
 
-# Objects sit on the tabletop. The can is the grasp target.
 CAN_R, CAN_HH = 0.033, 0.06
-CAN_POS = (0.06, 0.03)  # (x, y) on the table
+CAN_POS = (0.06, 0.03)
 CAN_Z = TABLE_H + CAN_HH
-
-NOTEBOOK_POS = (-0.05, -0.17)
+NOTEBOOK_POS = (-0.04, -0.08)  # within comfortable arm reach so it lifts cleanly
 PEN_POS = (0.17, -0.10)
 
-# Arm base mounted on the tabletop, back-left, so it reaches across to the can.
+# Grasp parameters per selectable object: (x, y) on the table, the fingertip
+# height to grasp at, and the height to lift the gripper to.
+_OBJECTS = {
+    "can": {"pos": CAN_POS, "grasp_z": CAN_Z - 0.01, "lift_z": CAN_Z + 0.24, "label": "the can"},
+    "pen": {"pos": PEN_POS, "grasp_z": TABLE_H + 0.02, "lift_z": TABLE_H + 0.24, "label": "the pen"},
+    # Notebook is a chunky book so it reads clearly when lifted (no wrist tilt --
+    # tilting a welded flat object stresses the constraint until it flings off).
+    "notebook": {
+        "pos": NOTEBOOK_POS,
+        "grasp_z": TABLE_H + 0.035,
+        "lift_z": TABLE_H + 0.26,
+        "present_tilt": 1.2,  # rotate it up toward vertical -> held on its edge
+        "label": "the notebook",
+    },
+}
+
 BASE_X, BASE_Y = -0.34, 0.18
 PEDESTAL_H = 0.12
 SHOULDER_Z = TABLE_H + PEDESTAL_H
-L1, L2 = 0.28, 0.26  # upper-arm / forearm lengths
-GRIP_DROP = 0.075  # fingertip site below the wrist
+L1, L2 = 0.28, 0.26
+GRIP_DROP = 0.075
 
 
-def _scene_mjcf(clutter: bool = False) -> str:
+def _coll(is_target: bool) -> str:
+    # The grasp target is collidable (rests on the table, can be lifted); the
+    # other objects are static scenery (no collision, never move).
+    return 'contype="1" conaffinity="1"' if is_target else 'contype="0" conaffinity="0"'
+
+
+def _scene_mjcf(target: str = "can", clutter: bool = False) -> str:
     cx, cy = CAN_POS
     nx, ny = NOTEBOOK_POS
     px, py = PEN_POS
+    can_j = '<freejoint name="can_free"/>' if target == "can" else ""
+    nb_j = '<freejoint name="nb_free"/>' if target == "notebook" else ""
+    pen_j = '<freejoint name="pen_free"/>' if target == "pen" else ""
+    can_c, nb_c, pen_c = _coll(target == "can"), _coll(target == "notebook"), _coll(target == "pen")
+
     clutter_xml = (
         f"""
-    <!-- clutter (harder variation): a bowl and a block crowd the can -->
     <body name="bowl" pos="-0.19 0.14 {TABLE_H + 0.03}">
       <geom type="cylinder" size="0.062 0.03" material="bowl" contype="0" conaffinity="0"/>
       <geom type="cylinder" size="0.05 0.024" pos="0 0 0.012" material="bowlinner" contype="0" conaffinity="0"/>
@@ -76,7 +100,7 @@ def _scene_mjcf(clutter: bool = False) -> str:
     <material name="woodleg" rgba="0.32 0.20 0.12 1" specular="0.2" shininess="0.3"/>
     <material name="can" rgba="0.83 0.11 0.12 1" specular="0.6" shininess="0.75"/>
     <material name="metal" rgba="0.66 0.68 0.72 1" specular="0.75" shininess="0.85"/>
-    <material name="notecover" rgba="0.13 0.17 0.33 1" specular="0.2" shininess="0.3"/>
+    <material name="notecover" rgba="0.16 0.45 0.85 1" specular="0.35" shininess="0.5"/>
     <material name="paper" rgba="0.92 0.91 0.86 1" specular="0.08" shininess="0.15"/>
     <material name="pen" rgba="0.10 0.22 0.55 1" specular="0.5" shininess="0.7"/>
     <material name="pencap" rgba="0.80 0.16 0.16 1" specular="0.5" shininess="0.7"/>
@@ -92,7 +116,6 @@ def _scene_mjcf(clutter: bool = False) -> str:
     <light pos="0.4 -0.5 1.6" dir="-0.3 0.35 -1" diffuse="0.6 0.6 0.62" castshadow="true"/>
     <geom name="floor" type="plane" size="3 3 0.1" material="floor"/>
 
-    <!-- round pedestal coffee table -->
     <body name="table" pos="0 0 0">
       <geom name="table_top" type="cylinder" size="{TABLE_R} {TABLE_HZ}"
             pos="0 0 {TABLE_H - TABLE_HZ}" material="wood"/>
@@ -101,28 +124,26 @@ def _scene_mjcf(clutter: bool = False) -> str:
       <geom type="cylinder" size="0.17 0.012" pos="0 0 0.012" material="woodleg" contype="0" conaffinity="0"/>
     </body>
 
-    <!-- soda can (grasp target) -->
     <body name="can" pos="{cx} {cy} {CAN_Z}">
-      <freejoint name="can_free"/>
-      <geom type="cylinder" size="{CAN_R} {CAN_HH}" material="can" mass="0.35"/>
-      <geom type="cylinder" size="{CAN_R * 0.96} 0.004" pos="0 0 {CAN_HH}" material="metal"/>
-      <geom type="cylinder" size="{CAN_R * 0.96} 0.004" pos="0 0 {-CAN_HH}" material="metal"/>
+      {can_j}
+      <geom type="cylinder" size="{CAN_R} {CAN_HH}" material="can" mass="0.35" {can_c}/>
+      <geom type="cylinder" size="{CAN_R * 0.96} 0.004" pos="0 0 {CAN_HH}" material="metal" contype="0" conaffinity="0"/>
+      <geom type="cylinder" size="{CAN_R * 0.96} 0.004" pos="0 0 {-CAN_HH}" material="metal" contype="0" conaffinity="0"/>
     </body>
 
-    <!-- notebook (closed pad: dark cover + cream pages) -->
-    <body name="notebook" pos="{nx} {ny} {TABLE_H}" euler="0 0 0.35">
-      <geom type="box" size="0.086 0.061 0.008" pos="0 0 0.008" material="notecover" contype="0" conaffinity="0"/>
-      <geom type="box" size="0.080 0.055 0.007" pos="0.004 0 0.018" material="paper" contype="0" conaffinity="0"/>
+    <body name="notebook" pos="{nx} {ny} {TABLE_H + 0.001}" euler="0 0 0.35">
+      {nb_j}
+      <geom type="box" size="0.09 0.066 0.016" pos="0 0 0.016" material="notecover" mass="0.12" {nb_c}/>
+      <geom type="box" size="0.083 0.059 0.006" pos="0.004 0 0.036" material="paper" contype="0" conaffinity="0"/>
     </body>
 
-    <!-- pen (lying flat, clearly separate from the notebook) -->
-    <body name="pen" pos="{px} {py} {TABLE_H + 0.007}" euler="0 1.5708 -0.55">
-      <geom type="cylinder" size="0.0062 0.07" material="pen" contype="0" conaffinity="0"/>
-      <geom type="cylinder" size="0.0058 0.012" pos="0 0 0.078" material="metal" contype="0" conaffinity="0"/>
-      <geom type="cylinder" size="0.0068 0.016" pos="0 0 -0.05" material="pencap" contype="0" conaffinity="0"/>
+    <body name="pen" pos="{px} {py} {TABLE_H + 0.0065}" euler="0 1.5708 -0.55">
+      {pen_j}
+      <geom type="cylinder" size="0.0062 0.066" material="pen" mass="0.03" {pen_c}/>
+      <geom type="cylinder" size="0.0058 0.013" pos="0 0 0.072" material="metal" contype="0" conaffinity="0"/>
+      <geom type="cylinder" size="0.0068 0.013" pos="0 0 -0.072" material="pencap" contype="0" conaffinity="0"/>
     </body>
 {clutter_xml}
-    <!-- articulated arm bolted to the tabletop -->
     <body name="pedestal" pos="{BASE_X} {BASE_Y} {TABLE_H}">
       <geom type="cylinder" size="0.05 0.012" material="metal" contype="0" conaffinity="0"/>
       <geom type="cylinder" size="0.032 {PEDESTAL_H / 2}" pos="0 0 {PEDESTAL_H / 2}"
@@ -152,7 +173,7 @@ def _scene_mjcf(clutter: bool = False) -> str:
   </worldbody>
 
   <equality>
-    <weld name="grasp" body1="wrist" body2="can" active="false"/>
+    <weld name="grasp" body1="wrist" body2="{target}" active="false"/>
   </equality>
 
   <actuator>
@@ -166,11 +187,7 @@ def _scene_mjcf(clutter: bool = False) -> str:
 
 
 def _ik(model, data, site_id, target, qadr, dadr, wrist_qadr, *, iters=400, tol=8e-4):
-    """Damped least-squares IK over [yaw, shoulder, elbow]; wrist slaved level.
-
-    Mutates the supplied (scratch) data and warm-starts from its current qpos.
-    The wrist is kept counter-rotated so the gripper points straight down.
-    """
+    """Damped least-squares IK over [yaw, shoulder, elbow]; wrist slaved level."""
     target = np.asarray(target, dtype=float)
     jacp = np.zeros((3, model.nv))
     jacr = np.zeros((3, model.nv))
@@ -182,7 +199,7 @@ def _ik(model, data, site_id, target, qadr, dadr, wrist_qadr, *, iters=400, tol=
         if np.linalg.norm(err) < tol:
             break
         mujoco.mj_jacSite(model, data, jacp, jacr, site_id)
-        jac = jacp[:, dadr]  # 3x3
+        jac = jacp[:, dadr]
         dq = jac.T @ np.linalg.solve(jac @ jac.T + (lam**2) * np.eye(3), err)
         for i, a in enumerate(qadr):
             data.qpos[a] += float(np.clip(dq[i], -0.2, 0.2))
@@ -190,11 +207,7 @@ def _ik(model, data, site_id, target, qadr, dadr, wrist_qadr, *, iters=400, tol=
 
 
 def _weld_here(model, data, eq, body1, body2) -> None:
-    """Activate a weld pinning body2 to body1 at their CURRENT relative pose.
-
-    MuJoCo's weld relpose otherwise defaults to the qpos0 configuration (arm
-    straight up, can across the table), which yanks the scene apart on activate.
-    """
+    """Activate a weld pinning body2 to body1 at their CURRENT relative pose."""
     dp = data.xpos[body2] - data.xpos[body1]
     mat1 = data.xmat[body1].reshape(3, 3)
     relpos = mat1.T @ dp
@@ -202,66 +215,72 @@ def _weld_here(model, data, eq, body1, body2) -> None:
     q_rel = np.zeros(4)
     mujoco.mju_negQuat(neg_q1, data.xquat[body1])
     mujoco.mju_mulQuat(q_rel, neg_q1, data.xquat[body2])
-    model.eq_data[eq][0:3] = 0.0  # anchor (body2 origin)
-    model.eq_data[eq][3:6] = relpos  # relpose position
-    model.eq_data[eq][6:10] = q_rel  # relpose orientation
-    model.eq_data[eq][10] = 1.0  # torquescale
+    model.eq_data[eq][0:3] = 0.0
+    model.eq_data[eq][3:6] = relpos
+    model.eq_data[eq][6:10] = q_rel
+    model.eq_data[eq][10] = 1.0
     data.eq_active[eq] = 1
 
 
 def render_pick(
     out_path: str | Path,
     *,
+    target: str = "can",
     success: bool = True,
-    obj: str = "can",
     clutter: bool = False,
     width: int = 640,
     height: int = 400,
     capture_every: int = 8,
 ) -> Path:
-    """Render the tabletop arm grasping the can to mp4/gif.
+    """Render the tabletop arm grasping `target` (can / pen / notebook) to mp4/gif.
 
-    success=False -> the arm reaches beside the can and closes on empty air.
-    clutter=True -> add a bowl + block (the "harder variation" scene).
-    `obj` is accepted for API compatibility; the scene always grasps the can.
+    success=False -> the arm reaches beside the object and closes on empty air.
+    clutter=True  -> add a bowl + block (the "harder variation" scene).
     """
-    model = mujoco.MjModel.from_xml_string(_scene_mjcf(clutter))
+    if target not in _OBJECTS:
+        raise ValueError(f"unknown target '{target}'; choose from {sorted(_OBJECTS)}")
+    spec = _OBJECTS[target]
+    tx, ty = spec["pos"]
+    grasp_z, lift_z = spec["grasp_z"], spec["lift_z"]
+    present_tilt = spec.get("present_tilt", 0.0)
+
+    model = mujoco.MjModel.from_xml_string(_scene_mjcf(target, clutter))
     data = mujoco.MjData(model)
 
-    def jqadr(name: str) -> int:
+    def jqadr(name):
         return model.jnt_qposadr[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)]
 
-    def jdadr(name: str) -> int:
+    def jdadr(name):
         return model.jnt_dofadr[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)]
 
-    def aid(name: str) -> int:
+    def aid(name):
         return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
 
     grip_site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "grip")
     eq = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, "grasp")
+    # Heavily damp the grasp weld (default stiffness, high dampratio) so a flat
+    # object hangs steady instead of pendulum-swinging -- without destabilizing
+    # the solver the way an over-stiff weld does.
+    model.eq_solref[eq] = [0.02, 5.0]
     b_wrist = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "wrist")
-    b_can = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "can")
+    b_target = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, target)
     qadr = [jqadr("j_yaw"), jqadr("j_shoulder"), jqadr("j_elbow")]
     dadr = [jdadr("j_yaw"), jdadr("j_shoulder"), jdadr("j_elbow")]
     wrist_qadr = jqadr("j_wrist")
 
-    cx, cy = CAN_POS
     miss = 0.12 if not success else 0.0
-    home_t = np.array([cx - 0.18, cy + 0.12, CAN_Z + 0.30])  # raised, back from the can
-    above_t = np.array([cx + miss, cy, CAN_Z + 0.22])  # directly above the can
-    grasp_t = np.array([cx + miss, cy, CAN_Z - 0.01])  # at the can body (above the table)
-    lift_t = np.array([cx + miss, cy, CAN_Z + 0.24])
+    home_t = np.array([BASE_X + 0.14, BASE_Y, TABLE_H + 0.42])  # raised, near the base
+    above_t = np.array([tx + miss, ty, grasp_z + 0.22])
+    grasp_t = np.array([tx + miss, ty, grasp_z])
+    lift_t = np.array([tx + miss, ty, lift_z])
 
-    # Scratch model for IK; warm-started across calls so per-step solves are cheap.
-    # Seed an *elbow-up* posture so the arm reaches down to the can instead of
-    # sprawling across the table (elbow-down sinks the mid-arm through the top).
+    # Elbow-up seed so the arm reaches down without sinking links through the top.
     scratch = mujoco.MjData(model)
     scratch.qpos[qadr[0]], scratch.qpos[qadr[1]], scratch.qpos[qadr[2]] = -0.5, 1.6, 1.2
 
-    def ik_to(target, iters=120):
-        return _ik(model, scratch, grip_site, target, qadr, dadr, wrist_qadr, iters=iters)
+    def ik_to(tgt, iters=120):
+        return _ik(model, scratch, grip_site, tgt, qadr, dadr, wrist_qadr, iters=iters)
 
-    # Start the real arm at the raised home pose.
     q_home = ik_to(home_t, iters=400)
     for a, v in zip(qadr, q_home):
         data.qpos[a] = v
@@ -278,19 +297,20 @@ def render_pick(
     frames: list = []
     step_i = 0
 
-    def set_ctrl(q3):
+    def set_ctrl(q3, wrist_tilt=0.0):
         data.ctrl[aid("a_yaw")] = q3[0]
         data.ctrl[aid("a_shoulder")] = q3[1]
         data.ctrl[aid("a_elbow")] = q3[2]
-        data.ctrl[aid("a_wrist")] = -(q3[1] + q3[2])
+        # Level the gripper (point down); +wrist_tilt "presents" a flat object.
+        data.ctrl[aid("a_wrist")] = -(q3[1] + q3[2]) + wrist_tilt
 
-    def move(p0, p1, steps):
-        """Drive the gripper along a straight Cartesian segment, solving IK per step."""
+    def move(p0, p1, steps, tilt0=0.0, tilt1=0.0):
         nonlocal step_i
         p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
         for i in range(steps):
-            target = p0 + (p1 - p0) * ((i + 1) / steps)
-            set_ctrl(ik_to(target, iters=40))
+            f = (i + 1) / steps
+            tgt = p0 + (p1 - p0) * f
+            set_ctrl(ik_to(tgt, iters=40), tilt0 + (tilt1 - tilt0) * f)
             mujoco.mj_step(model, data)
             if step_i % capture_every == 0:
                 renderer.update_scene(data, camera=cam)
@@ -298,12 +318,13 @@ def render_pick(
             step_i += 1
 
     move(home_t, above_t, 90)  # swing over, staying high above the table
-    move(above_t, grasp_t, 130)  # straight down onto the can
+    move(above_t, grasp_t, 130)  # straight down onto the object
     if success:
-        _weld_here(model, data, eq, b_wrist, b_can)
+        _weld_here(model, data, eq, b_wrist, b_target)
     move(grasp_t, grasp_t, 45)  # close + settle the grip
-    move(grasp_t, lift_t, 150)  # straight up
-    move(lift_t, lift_t, 55)  # hold
+    move(grasp_t, lift_t, 150)  # lift straight up, clear of the table
+    move(lift_t, lift_t, 75, 0.0, present_tilt)  # rotate to present (e.g. notebook -> sideways)
+    move(lift_t, lift_t, 10, present_tilt, present_tilt)  # brief settle, then end (before a flat object slips)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -321,12 +342,5 @@ def render_pick(
         from PIL import Image
 
         images = [Image.fromarray(frame) for frame in frames]
-        images[0].save(
-            out_path,
-            save_all=True,
-            append_images=images[1:],
-            duration=50,
-            loop=0,
-            optimize=True,
-        )
+        images[0].save(out_path, save_all=True, append_images=images[1:], duration=50, loop=0, optimize=True)
     return out_path

@@ -307,7 +307,7 @@ export const loopStepCopy: Record<LoopStep['id'], Omit<LoopStep, 'id' | 'status'
 
 export const commandExamples: CommandExample[] = [
   { id: 'recover_grasp', label: 'Teach the robot to recover from a failed grasp.' },
-  { id: 'harder_variations', label: 'Generate harder mug pickup variations.' },
+  { id: 'harder_variations', label: 'Generate harder pickup variations with clutter.' },
   { id: 'retest_original', label: 'Retest the original failed case.' },
   { id: 'train_successes', label: 'Train on successful trajectories from this scene.' },
   { id: 'explain_council', label: 'Explain what the AI council thinks went wrong.' },
