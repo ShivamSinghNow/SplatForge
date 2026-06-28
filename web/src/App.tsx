@@ -123,10 +123,13 @@ function SplatForgeApp() {
         runCommand(example?.label);
         break;
       case 'harder_variations':
-        // Curriculum: surface the generated world variations.
+        // Curriculum: play the harder, cluttered variation (bowl + block) and
+        // surface the generated world variations.
         setStep('curriculum');
         setActiveSection('worlds');
-        setNotice('Generating harder pickup variations (curriculum)...');
+        setRolloutClip('/pick_can_hard.mp4');
+        setNotice('Generating a harder variation — added clutter (bowl + block)...');
+        setPlayToken((token) => token + 1);
         break;
       case 'retest_original':
         // Retest: play the original failed-case rollout.

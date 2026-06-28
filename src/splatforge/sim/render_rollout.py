@@ -42,10 +42,23 @@ L1, L2 = 0.28, 0.26  # upper-arm / forearm lengths
 GRIP_DROP = 0.075  # fingertip site below the wrist
 
 
-def _scene_mjcf() -> str:
+def _scene_mjcf(clutter: bool = False) -> str:
     cx, cy = CAN_POS
     nx, ny = NOTEBOOK_POS
     px, py = PEN_POS
+    clutter_xml = (
+        f"""
+    <!-- clutter (harder variation): a bowl and a block crowd the can -->
+    <body name="bowl" pos="-0.19 0.14 {TABLE_H + 0.03}">
+      <geom type="cylinder" size="0.062 0.03" material="bowl" contype="0" conaffinity="0"/>
+      <geom type="cylinder" size="0.05 0.024" pos="0 0 0.012" material="bowlinner" contype="0" conaffinity="0"/>
+    </body>
+    <body name="block" pos="0.21 0.16 {TABLE_H + 0.032}" euler="0 0 0.5">
+      <geom type="box" size="0.032 0.032 0.032" material="block" contype="0" conaffinity="0"/>
+    </body>"""
+        if clutter
+        else ""
+    )
     return f"""
 <mujoco model="splatforge_tabletop">
   <compiler angle="radian" autolimits="true"/>
@@ -67,6 +80,9 @@ def _scene_mjcf() -> str:
     <material name="paper" rgba="0.92 0.91 0.86 1" specular="0.08" shininess="0.15"/>
     <material name="pen" rgba="0.10 0.22 0.55 1" specular="0.5" shininess="0.7"/>
     <material name="pencap" rgba="0.80 0.16 0.16 1" specular="0.5" shininess="0.7"/>
+    <material name="bowl" rgba="0.86 0.87 0.91 1" specular="0.55" shininess="0.65"/>
+    <material name="bowlinner" rgba="0.17 0.21 0.29 1" specular="0.3" shininess="0.4"/>
+    <material name="block" rgba="0.18 0.55 0.55 1" specular="0.4" shininess="0.5"/>
     <material name="arm" rgba="0.20 0.21 0.24 1" specular="0.5" shininess="0.6"/>
     <material name="joint" rgba="0.85 0.55 0.10 1" specular="0.6" shininess="0.7"/>
     <material name="finger" rgba="0.80 0.82 0.88 1" specular="0.45" shininess="0.6"/>
@@ -105,7 +121,7 @@ def _scene_mjcf() -> str:
       <geom type="cylinder" size="0.0058 0.012" pos="0 0 0.078" material="metal" contype="0" conaffinity="0"/>
       <geom type="cylinder" size="0.0068 0.016" pos="0 0 -0.05" material="pencap" contype="0" conaffinity="0"/>
     </body>
-
+{clutter_xml}
     <!-- articulated arm bolted to the tabletop -->
     <body name="pedestal" pos="{BASE_X} {BASE_Y} {TABLE_H}">
       <geom type="cylinder" size="0.05 0.012" material="metal" contype="0" conaffinity="0"/>
@@ -198,6 +214,7 @@ def render_pick(
     *,
     success: bool = True,
     obj: str = "can",
+    clutter: bool = False,
     width: int = 640,
     height: int = 400,
     capture_every: int = 8,
@@ -205,9 +222,10 @@ def render_pick(
     """Render the tabletop arm grasping the can to mp4/gif.
 
     success=False -> the arm reaches beside the can and closes on empty air.
+    clutter=True -> add a bowl + block (the "harder variation" scene).
     `obj` is accepted for API compatibility; the scene always grasps the can.
     """
-    model = mujoco.MjModel.from_xml_string(_scene_mjcf())
+    model = mujoco.MjModel.from_xml_string(_scene_mjcf(clutter))
     data = mujoco.MjData(model)
 
     def jqadr(name: str) -> int:
