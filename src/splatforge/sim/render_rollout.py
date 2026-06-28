@@ -43,8 +43,8 @@ _OBJECTS = {
     "notebook": {
         "pos": NOTEBOOK_POS,
         "grasp_z": TABLE_H + 0.035,
-        "lift_z": TABLE_H + 0.22,
-        "present_tilt": 0.0,
+        "lift_z": TABLE_H + 0.24,
+        "present_tilt": 0.5,
         "label": "the notebook",
     },
 }
@@ -258,6 +258,10 @@ def render_pick(
 
     grip_site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "grip")
     eq = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, "grasp")
+    # Heavily damp the grasp weld (default stiffness, high dampratio) so a flat
+    # object hangs steady instead of pendulum-swinging -- without destabilizing
+    # the solver the way an over-stiff weld does.
+    model.eq_solref[eq] = [0.02, 5.0]
     b_wrist = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "wrist")
     b_target = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, target)
     qadr = [jqadr("j_yaw"), jqadr("j_shoulder"), jqadr("j_elbow")]
