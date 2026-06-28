@@ -38,13 +38,13 @@ PEN_POS = (0.17, -0.10)
 _OBJECTS = {
     "can": {"pos": CAN_POS, "grasp_z": CAN_Z - 0.01, "lift_z": CAN_Z + 0.24, "label": "the can"},
     "pen": {"pos": PEN_POS, "grasp_z": TABLE_H + 0.02, "lift_z": TABLE_H + 0.24, "label": "the pen"},
-    # Notebook is flat -> lift higher and "present" it (tilt the wrist) so its
-    # face turns toward the camera instead of lifting edge-on.
+    # Notebook is a chunky book so it reads clearly when lifted (no wrist tilt --
+    # tilting a welded flat object stresses the constraint until it flings off).
     "notebook": {
         "pos": NOTEBOOK_POS,
-        "grasp_z": TABLE_H + 0.03,
+        "grasp_z": TABLE_H + 0.035,
         "lift_z": TABLE_H + 0.22,
-        "present_tilt": 0.6,
+        "present_tilt": 0.0,
         "label": "the notebook",
     },
 }
@@ -133,8 +133,8 @@ def _scene_mjcf(target: str = "can", clutter: bool = False) -> str:
 
     <body name="notebook" pos="{nx} {ny} {TABLE_H + 0.001}" euler="0 0 0.35">
       {nb_j}
-      <geom type="box" size="0.095 0.07 0.011" pos="0 0 0.011" material="notecover" mass="0.12" {nb_c}/>
-      <geom type="box" size="0.088 0.063 0.009" pos="0.005 0 0.023" material="paper" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.09 0.066 0.016" pos="0 0 0.016" material="notecover" mass="0.12" {nb_c}/>
+      <geom type="box" size="0.083 0.059 0.006" pos="0.004 0 0.036" material="paper" contype="0" conaffinity="0"/>
     </body>
 
     <body name="pen" pos="{px} {py} {TABLE_H + 0.0065}" euler="0 1.5708 -0.55">
@@ -319,8 +319,7 @@ def render_pick(
         _weld_here(model, data, eq, b_wrist, b_target)
     move(grasp_t, grasp_t, 45)  # close + settle the grip
     move(grasp_t, lift_t, 150)  # lift straight up, clear of the table
-    move(lift_t, lift_t, 70, 0.0, present_tilt)  # then tilt to present a flat object
-    move(lift_t, lift_t, 35, present_tilt, present_tilt)  # hold, presented
+    move(lift_t, lift_t, 40, 0.0, present_tilt)  # brief hold (optional present tilt), then end
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
