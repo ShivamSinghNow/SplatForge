@@ -3,4 +3,5 @@ google-genai>=0.3.0
 pydantic>=2.7
 pymongo>=4.7
 python-dotenv>=1.0
+rerun-sdk>=0.33.1
 uvicorn[standard]>=0.30

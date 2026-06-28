@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   Brain,
-  Check,
-  ChevronRight,
-  Database,
   Download,
+  Film,
   Gauge,
   GitBranch,
   HardDrive,
@@ -14,18 +12,27 @@ import {
   Play,
   RotateCcw,
   Settings,
+  Square,
   Terminal,
 } from 'lucide-react';
+import { OvernightRunBanner } from './components/demo/OvernightRunBanner';
 import { SuccessRateChart } from './components/charts/SuccessRateChart';
-import { SplatForgePreview } from './components/preview/SplatForgePreview';
-import { createRun, fetchHealth, fetchSuccessRate, type SuccessRateSeries } from './lib/api/client';
-import { RunProvider, useRun } from './lib/hooks/useRun';
-import { getDemoControlRoomState } from './lib/services/demoSplatForgeService';
-import type { CriticResult, IntegrationStatus, LoopStep, LoopStepId, StepStatus, TrainingWorld } from './lib/types/splatforge';
+import { SideInspector } from './components/inspector/SideInspector';
+import { RerunViewerPanel } from './components/rerun/RerunViewerPanel';
+import { AppModeBanner } from './components/shared/DataHonesty';
+import { useAppMode } from './hooks/useAppMode';
+import { useControlRoomData } from './hooks/useControlRoomData';
+import { useDemoPresentation, type DemoBeat } from './hooks/useDemoPresentation';
+import { useRerunRecording } from './hooks/useRerunRecording';
+import { mapInspectorToNav, mapNavToInspector, useInspectorState } from './hooks/useInspectorState';
+import type { CriticCard, IntegrationStatus, RunSummary, SuccessRateSeries } from './lib/api/types';
+import { rerunDownloadUrl, testRerunRecording, type RerunRecordingMetadata } from './lib/api/rerun';
+import { mapHonestIntegrations } from './lib/services/integrationService';
+import { scoreFromRun } from './lib/render/buildRenderViewport';
+import type { LoopStep, LoopStepId, StepStatus } from './lib/types/splatforge';
 
 type SectionId = 'control' | 'worlds' | 'runs' | 'memory' | 'council' | 'policy' | 'health';
 
-const state = getDemoControlRoomState();
 const loopOrder: LoopStepId[] = ['world', 'attempt', 'critique', 'curriculum', 'train', 'retest', 'improve'];
 
 const navItems: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
@@ -39,112 +46,150 @@ const navItems: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
 ];
 
 export default function App() {
-  return (
-    <RunProvider>
-      <SplatForgeApp />
-    </RunProvider>
-  );
-}
+  const {
+    apiOnline,
+    usingFixtures,
+    loading,
+    notice,
+    scenes,
+    tasks,
+    integrations,
+    runs,
+    selectedScene,
+    selectedTask,
+    setSelectedScene,
+    setSelectedTask,
+    activeRun,
+    selectRun,
+    currentStep,
+    setCurrentStep,
+    metrics,
+    submittedCommand,
+    runLoop,
+    resetLoop,
+  } = useControlRoomData();
 
-function SplatForgeApp() {
-  const { currentStep, phase, loading, submittedCommand, startLoop, replayCachedRun, setStep, resetLoop } =
-    useRun();
   const [activeSection, setActiveSection] = useState<SectionId>('control');
-  const [command, setCommand] = useState(state.task.instruction);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [notice, setNotice] = useState('Ready');
-  const [apiOnline, setApiOnline] = useState(false);
-  const [metrics, setMetrics] = useState<SuccessRateSeries>({
-    points: [
-      { index: 1, success_rate: state.run.scoreBefore, label: 'initial attempt' },
-      { index: 2, success_rate: state.run.scoreAfter, label: 'after retest' },
-    ],
-    current_rate: state.run.scoreAfter,
-    source: 'demo',
+  const [command, setCommand] = useState('');
+  const [demoMetrics, setDemoMetrics] = useState<SuccessRateSeries | null>(null);
+  const [demoJumpTarget, setDemoJumpTarget] = useState<DemoBeat['rerunJump'] | undefined>(undefined);
+
+  const selectedTaskMeta = tasks.find((task) => task.id === selectedTask);
+  const selectedSceneMeta = scenes.find((scene) => scene.id === selectedScene);
+  const steps = useMemo(() => buildLoopSteps(currentStep), [currentStep]);
+  const scores = scoreFromRun(activeRun);
+  const improvement = scores.after - scores.before;
+  const phase = loading ? 'running' : activeRun ? 'complete' : 'ready';
+  const appMode = useAppMode({ apiOnline, usingFixtures, integrations });
+
+  const {
+    activeSection: inspectorSection,
+    setActiveSection: setInspectorSection,
+    model: inspectorModel,
+    updateRobot,
+    updateTask,
+    toggleVariation,
+  } = useInspectorState({
+    activeRun,
+    scenes,
+    tasks,
+    selectedScene,
+    selectedTask,
+    selectedTaskDescription: command || selectedTaskMeta?.description || '',
+    currentStep,
+    loading,
+    phase,
+    apiOnline,
+    integrations,
+    scores,
+    dataSource: appMode.dataSource,
+    isDemo: appMode.isDemo,
   });
 
-  const steps = useMemo(() => buildLoopSteps(currentStep), [currentStep]);
-  const activeStep = steps.find((step) => step.status === 'active') ?? steps[0];
-  const improvement = metrics.current_rate - (metrics.points[0]?.success_rate ?? state.run.scoreBefore);
+  const chartMetrics = demoMetrics ?? metrics;
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await fetchHealth();
-        setApiOnline(true);
-        const series = await fetchSuccessRate();
-        setMetrics(series);
-      } catch {
-        setApiOnline(false);
+  const handleDemoBeat = useCallback(
+    (beat: DemoBeat) => {
+      setCurrentStep(beat.loopStep);
+      if (beat.navSection) {
+        setActiveSection(beat.navSection);
       }
-    })();
-  }, []);
+      if (beat.inspectorSection) {
+        setInspectorSection(beat.inspectorSection);
+      }
+      if (beat.rerunJump) {
+        setDemoJumpTarget(beat.rerunJump);
+      }
+      if (beat.curvePoints) {
+        setDemoMetrics({
+          points: beat.curvePoints,
+          current_rate: beat.curvePoints[beat.curvePoints.length - 1]?.success_rate ?? metrics.current_rate,
+          source: 'demo-presentation',
+        });
+      }
+    },
+    [metrics.current_rate, setCurrentStep, setInspectorSection],
+  );
 
-  async function refreshMetrics(live = false) {
-    try {
-      const series = await fetchSuccessRate(live);
-      setMetrics(series);
-    } catch {
-      setMetrics({
-        points: [
-          { index: 1, success_rate: state.run.scoreBefore, label: 'initial attempt' },
-          { index: 2, success_rate: state.run.scoreAfter, label: 'after retest' },
-        ],
-        current_rate: state.run.scoreAfter,
-        source: 'demo',
-      });
-    }
-  }
+  const demo = useDemoPresentation({ onBeat: handleDemoBeat });
+
+  const activeRunId = activeRun?.run_id ?? null;
+  const {
+    metadata: rerunMetadata,
+    health: rerunHealth,
+    loading: rerunLoading,
+    error: rerunError,
+    refresh: refreshRerun,
+    generate: generateRerun,
+  } = useRerunRecording(activeRunId);
 
   async function runCommand(nextCommand = command) {
-    if (apiOnline) {
-      setNotice('Running live loop...');
-      try {
-        const summary = await createRun('mug_table', 'pick_mug', 'dry-run');
-        await refreshMetrics(true);
-        replayCachedRun();
-        setNotice(summary.phase);
-        setActiveSection('runs');
-        return;
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : 'Live run failed');
-      }
+    const instruction = nextCommand || inspectorModel.task.instruction || selectedTaskMeta?.description || '';
+    setCommand(instruction);
+    updateTask({ instruction });
+    const summary = await runLoop(instruction);
+    if (summary) {
+      setActiveSection('runs');
+      setInspectorSection('policy');
+      await refreshRerun();
     }
-    startLoop(nextCommand);
-    setNotice('Run started');
-    setActiveSection('runs');
   }
 
-  function selectCommand(nextCommand: string) {
-    setCommand(nextCommand);
-    setNotice('Command loaded');
+  function handleNavClick(section: SectionId) {
+    setActiveSection(section);
+    const mapped = mapNavToInspector(section);
+    if (mapped) {
+      setInspectorSection(mapped);
+    }
+  }
+
+  function handleInspectorSection(section: typeof inspectorSection) {
+    setInspectorSection(section);
+    const mapped = mapInspectorToNav(section);
+    if (mapped) {
+      setActiveSection(mapped as SectionId);
+    }
   }
 
   function exportReport() {
+    if (!activeRun) {
+      return;
+    }
     const report = {
       command: submittedCommand,
-      world: state.world,
-      task: state.task,
-      run: state.run,
-      critics: state.critics,
-      council: state.councilDecision,
-      policies: state.policies,
+      scene: selectedScene,
+      task: selectedTask,
+      run: activeRun,
+      metrics,
       exportedAt: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${state.run.id}.json`;
+    anchor.download = `${activeRun.run_id}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    setNotice('Report exported');
-  }
-
-  function openReplay() {
-    replayCachedRun();
-    setActiveSection('memory');
-    setNotice('Replaying cached run');
   }
 
   return (
@@ -159,10 +204,7 @@ function SplatForgeApp() {
             <button
               className={activeSection === item.id ? 'nav-item active' : 'nav-item'}
               key={item.id}
-              onClick={() => {
-                setActiveSection(item.id);
-                setNotice(`${item.label} opened`);
-              }}
+              onClick={() => handleNavClick(item.id)}
               type="button"
             >
               {item.icon}
@@ -173,21 +215,86 @@ function SplatForgeApp() {
       </aside>
 
       <main className="app-main">
+        <OvernightRunBanner active={demo.active} beatLabel={demo.beat?.label} progress={demo.progress} />
         <header className="topbar">
           <div className="topbar-left">
+            <AppModeBanner
+              dataSource={appMode.dataSource}
+              description={appMode.modeDescription}
+              mode={appMode.mode}
+            />
+            <StatusBadge
+              label={apiOnline ? 'api reachable' : 'api offline'}
+              status={apiOnline ? 'complete' : 'failed'}
+            />
             <StatusBadge label={phase} status={phase === 'complete' ? 'complete' : loading ? 'active' : 'pending'} />
-            <span className="mono">{state.run.id}</span>
+            <span className="mono">{activeRun?.run_id ?? 'no run'}</span>
+            {usingFixtures ? <span className="source-badge source-demo">Fixture data</span> : null}
           </div>
           <div className="topbar-actions">
+            <select
+              aria-label="Scene"
+              className="scene-select"
+              onChange={(event) => setSelectedScene(event.target.value)}
+              value={selectedScene}
+            >
+              {scenes.map((scene) => (
+                <option key={scene.id} value={scene.id}>
+                  {scene.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Task"
+              className="scene-select"
+              onChange={(event) => setSelectedTask(event.target.value)}
+              value={selectedTask}
+            >
+              {tasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="secondary-button"
+              disabled={demo.active}
+              onClick={() => demo.start()}
+              title="Scripted UI tour with fixture success-rate curve — not a live run"
+              type="button"
+            >
+              <Film size={15} />
+              {demo.active ? 'Presenting' : 'Scripted tour'}
+            </button>
+            {demo.active ? (
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  demo.stop();
+                  setDemoMetrics(null);
+                  setDemoJumpTarget(undefined);
+                }}
+                type="button"
+              >
+                <Square size={15} />
+                Stop
+              </button>
+            ) : null}
             <button className="secondary-button" onClick={resetLoop} type="button">
               <RotateCcw size={15} />
               Reset
             </button>
-            <button className="secondary-button" onClick={exportReport} type="button">
+            <button className="secondary-button" disabled={!activeRun} onClick={exportReport} type="button">
               <Download size={15} />
               Export
             </button>
-            <button className="primary-button" disabled={loading} onClick={() => runCommand()} type="button">
+            <button
+              className="primary-button"
+              disabled={loading || !apiOnline || usingFixtures || !selectedScene || !selectedTask}
+              onClick={() => runCommand()}
+              title={usingFixtures ? 'Start API for live runs' : !apiOnline ? 'API offline' : 'POST /runs'}
+              type="button"
+            >
               <Play size={15} />
               {loading ? 'Running' : 'Run'}
             </button>
@@ -196,75 +303,57 @@ function SplatForgeApp() {
 
         <section className="main-grid">
           <section className="preview-column">
-            <SplatForgePreview
-              currentStep={currentStep}
-              policyVersion={state.run.adapterVersion}
-              run={state.run}
-              task={state.task}
-              world={state.world}
+            <RerunViewerPanel
+              demoJumpTarget={demoJumpTarget}
+              error={rerunError}
+              health={rerunHealth}
+              loading={rerunLoading}
+              metadata={rerunMetadata}
+              onGenerate={() => void generateRerun()}
+              onRefresh={() => void refreshRerun()}
+              runId={activeRunId}
             />
             <CommandPanel
+              apiOnline={apiOnline}
               command={command}
+              isDemo={appMode.isDemo}
               loading={loading}
               notice={notice}
               onCommandChange={setCommand}
-              onRun={runCommand}
-              onSelectCommand={selectCommand}
-              onToggleVoice={() => {
-                setVoiceEnabled((enabled) => !enabled);
-                setNotice(voiceEnabled ? 'Voice disabled' : 'Voice enabled');
-              }}
-              voiceEnabled={voiceEnabled}
+              onRun={() => void runCommand()}
+              placeholder={selectedTaskMeta?.description ?? 'select a task'}
             />
           </section>
 
           <aside className="right-panel">
-            <Panel title="Run">
+            <SideInspector
+              activeSection={inspectorSection}
+              apiOnline={apiOnline}
+              isDemo={appMode.isDemo}
+              loading={loading}
+              model={inspectorModel}
+              onRobotChange={updateRobot}
+              onRun={() => runCommand()}
+              onSectionChange={handleInspectorSection}
+              onTaskChange={updateTask}
+              onTaskExample={(example) => {
+                updateTask({ instruction: example.label, taskType: example.taskType });
+                setCommand(example.label);
+              }}
+              onToggleVariation={toggleVariation}
+              onTestRerun={() => void testRerunRecording().then(() => refreshRerun())}
+              rerunHealth={rerunHealth}
+            />
+            <Panel title={demo.active ? 'Success rate (scripted fixture)' : 'Success rate'}>
               <SuccessRateChart
-                animate={phase === 'complete'}
-                currentRate={metrics.current_rate}
-                points={metrics.points}
+                animate={demo.active || phase === 'complete'}
+                currentRate={chartMetrics.current_rate}
+                points={chartMetrics.points}
               />
-              <KeyValue label="Phase" value={activeStep.label} />
-              <KeyValue label="Policy" value={state.run.adapterVersion} />
-              <KeyValue
-                label="Score"
-                value={`${metrics.points[0]?.success_rate ?? state.run.scoreBefore}% -> ${metrics.current_rate}%`}
-              />
-              <div className="score-line">
-                <span style={{ width: `${metrics.points[0]?.success_rate ?? state.run.scoreBefore}%` }} />
-                <strong style={{ width: `${metrics.current_rate}%` }} />
-              </div>
-            </Panel>
-
-            <Panel title="Task">
-              <KeyValue label="World" value={state.world.name} />
-              <KeyValue label="Target" value={state.task.targetObject} />
-              <KeyValue label="Difficulty" value={state.task.difficulty} />
-            </Panel>
-
-            <Panel title="Council">
-              <p className="short-copy">{state.councilDecision.consensusFailure}</p>
-              <div className="critic-mini-list">
-                {state.critics.slice(0, 4).map((critic) => (
-                  <button key={critic.id} onClick={() => setActiveSection('council')} type="button">
-                    <span>{critic.criticName}</span>
-                    <strong>{Math.round(critic.score * 100)}%</strong>
-                  </button>
-                ))}
-              </div>
-            </Panel>
-
-            <Panel title="Actions">
-              <button className="primary-button full-width" disabled={loading} onClick={() => runCommand()} type="button">
-                Run loop
-              </button>
-              <button className="secondary-button full-width" onClick={openReplay} type="button">
-                Open replay
-              </button>
-              <button className="secondary-button full-width" onClick={() => setActiveSection('policy')} type="button">
-                View policy
-              </button>
+              {demo.active ? <p className="status-line">Fixture curve from scripted tour — not from episodes.jsonl</p> : null}
+              {usingFixtures && !demo.active ? (
+                <p className="status-line">Metrics source: {metrics.source}</p>
+              ) : null}
             </Panel>
           </aside>
         </section>
@@ -274,10 +363,7 @@ function SplatForgeApp() {
             <button
               className={`loop-step loop-step-${step.status}`}
               key={step.id}
-              onClick={() => {
-                setStep(step.id);
-                setNotice(`${step.label} selected`);
-              }}
+              onClick={() => setCurrentStep(step.id)}
               type="button"
             >
               <span className="loop-node" />
@@ -288,12 +374,31 @@ function SplatForgeApp() {
 
         <section className="detail-panel">
           <DetailSection
+            activeRun={activeRun}
             activeSection={activeSection}
             improvement={improvement}
+            integrations={integrations}
             onExport={exportReport}
-            onOpenReplay={openReplay}
+            onGenerateRerun={() => void generateRerun()}
+            onOpenRerun={() => {
+              if (activeRunId) {
+                window.open(`/api/runs/${activeRunId}/rerun/viewer`, '_blank');
+              }
+            }}
             onRun={runCommand}
-            onSelectSection={setActiveSection}
+            onSelectRun={(runId) => {
+              selectRun(runId);
+              void refreshRerun();
+            }}
+            onSelectSection={(section) => {
+              setActiveSection(section);
+              const mapped = mapNavToInspector(section);
+              if (mapped) {
+                setInspectorSection(mapped);
+              }
+            }}
+            runs={runs}
+            scenes={scenes}
           />
         </section>
       </main>
@@ -305,21 +410,22 @@ function CommandPanel({
   command,
   loading,
   notice,
+  placeholder,
+  apiOnline,
+  isDemo,
   onCommandChange,
   onRun,
-  onSelectCommand,
-  onToggleVoice,
-  voiceEnabled,
 }: {
   command: string;
   loading: boolean;
   notice: string;
+  placeholder: string;
+  apiOnline: boolean;
+  isDemo: boolean;
   onCommandChange: (value: string) => void;
   onRun: () => void;
-  onSelectCommand: (value: string) => void;
-  onToggleVoice: () => void;
-  voiceEnabled: boolean;
 }) {
+  const canRun = apiOnline && !isDemo && !loading;
   return (
     <section className="command-panel">
       <div className="command-row">
@@ -329,28 +435,32 @@ function CommandPanel({
           className="command-input"
           onChange={(event) => onCommandChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && canRun) {
               onRun();
             }
           }}
-          placeholder="Teach the robot to pick up the mug even when the handle is hidden..."
+          placeholder={placeholder}
           value={command}
         />
-        <button className={voiceEnabled ? 'secondary-button voice-on' : 'secondary-button'} onClick={onToggleVoice} type="button">
+        <button
+          className="secondary-button"
+          disabled
+          title="Voice commands not wired — LiveKit integration not implemented"
+          type="button"
+        >
           <Mic2 size={15} />
           Voice
         </button>
-        <button className="primary-button" disabled={loading} onClick={onRun} type="button">
+        <button
+          className="primary-button"
+          disabled={!canRun}
+          onClick={onRun}
+          title={isDemo ? 'Start API for live runs' : !apiOnline ? 'API offline' : 'POST /runs'}
+          type="button"
+        >
           <Play size={15} />
           Run
         </button>
-      </div>
-      <div className="command-examples">
-        {state.commandExamples.map((example) => (
-          <button key={example.id} onClick={() => onSelectCommand(example.label)} type="button">
-            {example.label}
-          </button>
-        ))}
       </div>
       <div className="status-line">{notice}</div>
     </section>
@@ -359,25 +469,44 @@ function CommandPanel({
 
 function DetailSection({
   activeSection,
+  activeRun,
   improvement,
+  integrations,
   onExport,
-  onOpenReplay,
+  onGenerateRerun,
+  onOpenRerun,
   onRun,
+  onSelectRun,
   onSelectSection,
+  runs,
+  scenes,
 }: {
   activeSection: SectionId;
+  activeRun: RunSummary | null;
   improvement: number;
+  integrations: IntegrationStatus[];
   onExport: () => void;
-  onOpenReplay: () => void;
+  onGenerateRerun: () => void;
+  onOpenRerun: () => void;
   onRun: () => void;
+  onSelectRun: (runId: string) => void;
   onSelectSection: (section: SectionId) => void;
+  runs: RunSummary[];
+  scenes: Array<{ id: string; name: string; path: string }>;
 }) {
   if (activeSection === 'worlds') {
     return (
       <DataGrid title="Worlds">
-        {state.worlds.map((world) => (
-          <WorldCard key={world.id} world={world} />
-        ))}
+        {scenes.length ? (
+          scenes.map((scene) => (
+            <DataCard key={scene.id} title={scene.name}>
+              <KeyValue label="ID" value={scene.id} />
+              <KeyValue label="Path" value={scene.path} />
+            </DataCard>
+          ))
+        ) : (
+          <EmptyCard message="no scenes from api" />
+        )}
       </DataGrid>
     );
   }
@@ -385,18 +514,39 @@ function DetailSection({
   if (activeSection === 'runs') {
     return (
       <DataGrid title="Runs">
-        <DataCard title={state.run.id}>
-          <KeyValue label="Rollouts" value={String(state.run.rolloutCount)} />
-          <KeyValue label="Before" value={`${state.run.scoreBefore}%`} />
-          <KeyValue label="After" value={`${state.run.scoreAfter}%`} />
-          <button className="secondary-button" onClick={onOpenReplay} type="button">Open replay</button>
-        </DataCard>
-        {state.run.failureClusters.map((cluster) => (
-          <DataCard key={cluster.id} title={cluster.label}>
-            <KeyValue label="Count" value={String(cluster.count)} />
-            <KeyValue label="Severity" value={cluster.severity} />
-          </DataCard>
-        ))}
+        {runs.length ? (
+          runs.map((run) => (
+            <DataCard key={run.run_id} title={run.run_id}>
+              <KeyValue label="Scene" value={run.scene} />
+              <KeyValue label="Task" value={run.task} />
+              <KeyValue label="Phase" value={run.phase} />
+              <KeyValue label="Initial" value={run.initial_attempt.status} />
+              <KeyValue label="Retest" value={run.retest?.status ?? '—'} />
+              <button className="secondary-button" onClick={() => onSelectRun(run.run_id)} type="button">
+                Load run
+              </button>
+              <button className="secondary-button" onClick={onGenerateRerun} type="button">
+                Generate Rerun
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => window.open(`/api/runs/${run.run_id}/rerun/viewer`, '_blank')}
+                type="button"
+              >
+                Open Rerun Viewer
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => window.open(rerunDownloadUrl(run.run_id), '_blank')}
+                type="button"
+              >
+                Download .rrd
+              </button>
+            </DataCard>
+          ))
+        ) : (
+          <EmptyCard message="no runs yet" />
+        )}
       </DataGrid>
     );
   }
@@ -404,14 +554,35 @@ function DetailSection({
   if (activeSection === 'memory') {
     return (
       <DataGrid title="Replay Memory">
-        <DataCard title="Failed rollouts">
-          <KeyValue label="Stored" value={`${state.run.failureClusters.reduce((total, cluster) => total + cluster.count, 0)}`} />
-          <KeyValue label="Top failure" value={state.run.failureClusters[0].label} />
-        </DataCard>
-        <DataCard title="Training data">
-          <KeyValue label="Selected" value="18 trajectories" />
-          <KeyValue label="Storage" value="local JSONL" />
-        </DataCard>
+        {activeRun ? (
+          <>
+            <DataCard title="Rerun recording">
+              <KeyValue label="Failure frame" value="frame 4" />
+              <KeyValue label="Gemini critique" value="frame 5" />
+              <KeyValue label="Policy version" value={activeRun.retest?.policy_version ?? activeRun.initial_attempt.policy_version} />
+              <button className="secondary-button" onClick={onOpenRerun} type="button">
+                Open failure replay
+              </button>
+              <button className="secondary-button" onClick={onGenerateRerun} type="button">
+                Regenerate recording
+              </button>
+            </DataCard>
+            <DataCard title="Evidence">
+              {(activeRun.evidence.length ? activeRun.evidence : ['no evidence recorded']).map((item) => (
+                <p className="short-copy" key={item}>
+                  {item}
+                </p>
+              ))}
+            </DataCard>
+            <DataCard title="Collections">
+              {activeRun.log_collections.map((collection) => (
+                <KeyValue key={collection} label="log" value={collection} />
+              ))}
+            </DataCard>
+          </>
+        ) : (
+          <EmptyCard message="select or run a loop first" />
+        )}
       </DataGrid>
     );
   }
@@ -419,9 +590,11 @@ function DetailSection({
   if (activeSection === 'council') {
     return (
       <DataGrid title="AI Council">
-        {state.critics.map((critic) => (
-          <CriticCard critic={critic} key={critic.id} />
-        ))}
+        {activeRun?.critics.length ? (
+          activeRun.critics.map((critic) => <ApiCriticCard critic={critic} key={critic.name} />)
+        ) : (
+          <EmptyCard message="no critic output yet" />
+        )}
       </DataGrid>
     );
   }
@@ -429,13 +602,31 @@ function DetailSection({
   if (activeSection === 'policy') {
     return (
       <DataGrid title="Policy">
-        {state.policies.map((policy) => (
-          <DataCard key={policy.id} title={policy.name}>
-            <KeyValue label="Adapter" value={policy.adapter} />
-            <KeyValue label="Score" value={`${policy.score}%`} />
-            <KeyValue label="Trained on" value={policy.trainedOn} />
-          </DataCard>
-        ))}
+        {activeRun ? (
+          <>
+            <DataCard title="Before / after">
+              <KeyValue label="Initial policy" value={activeRun.initial_attempt.policy_version} />
+              <KeyValue label="Retest policy" value={activeRun.retest?.policy_version ?? '—'} />
+              <KeyValue label="Initial status" value={activeRun.initial_attempt.status} />
+              <KeyValue label="Retest status" value={activeRun.retest?.status ?? '—'} />
+              <button className="secondary-button" onClick={onOpenRerun} type="button">
+                Compare in Rerun
+              </button>
+            </DataCard>
+            {activeRun.policy_changes.length ? (
+              activeRun.policy_changes.map((change) => (
+                <DataCard key={change.parameter} title={change.parameter}>
+                  <KeyValue label="Before" value={String(change.before)} />
+                  <KeyValue label="After" value={String(change.after)} />
+                </DataCard>
+              ))
+            ) : (
+              <EmptyCard message="no policy changes yet" />
+            )}
+          </>
+        ) : (
+          <EmptyCard message="no policy changes yet" />
+        )}
       </DataGrid>
     );
   }
@@ -443,8 +634,8 @@ function DetailSection({
   if (activeSection === 'health') {
     return (
       <DataGrid title="Health">
-        {state.integrations.map((integration) => (
-          <IntegrationCard integration={integration} key={integration.name} />
+        {integrations.map((integration) => (
+          <IntegrationCard integration={integration} key={integration.id} />
         ))}
       </DataGrid>
     );
@@ -453,14 +644,22 @@ function DetailSection({
   return (
     <DataGrid title="Control">
       <DataCard title="Current run">
-        <KeyValue label="Improvement" value={`+${improvement}%`} />
-        <KeyValue label="Command" value={state.task.instruction} />
-        <button className="primary-button" onClick={onRun} type="button">Run loop</button>
+        <KeyValue label="Improvement" value={activeRun ? `+${improvement}%` : '—'} />
+        <KeyValue label="Command" value={activeRun?.task ?? '—'} />
+        <button className="primary-button" onClick={onRun} type="button">
+          Run loop
+        </button>
       </DataCard>
       <DataCard title="Next">
-        <button className="secondary-button" onClick={() => onSelectSection('council')} type="button">Council</button>
-        <button className="secondary-button" onClick={() => onSelectSection('memory')} type="button">Memory</button>
-        <button className="secondary-button" onClick={onExport} type="button">Export</button>
+        <button className="secondary-button" onClick={() => onSelectSection('council')} type="button">
+          Council
+        </button>
+        <button className="secondary-button" onClick={() => onSelectSection('memory')} type="button">
+          Memory
+        </button>
+        <button className="secondary-button" disabled={!activeRun} onClick={onExport} type="button">
+          Export
+        </button>
       </DataCard>
     </DataGrid>
   );
@@ -518,35 +717,31 @@ function DataCard({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function WorldCard({ world }: { world: TrainingWorld }) {
+function EmptyCard({ message }: { message: string }) {
   return (
-    <DataCard title={world.name}>
-      <KeyValue label="Objects" value={String(world.objects.length)} />
-      <KeyValue label="Tasks" value={String(world.tasks.length)} />
-      <KeyValue label="Variations" value={String(world.variationsCount)} />
-      <KeyValue label="Score" value={`${world.lastScore}%`} />
+    <DataCard title="—">
+      <p className="short-copy">{message}</p>
     </DataCard>
   );
 }
 
-function CriticCard({ critic }: { critic: CriticResult }) {
+function ApiCriticCard({ critic }: { critic: CriticCard }) {
   return (
-    <DataCard title={critic.criticName}>
-      <KeyValue label="Score" value={`${Math.round(critic.score * 100)}%`} />
-      <KeyValue label="Failure" value={critic.failureType} />
-      <KeyValue label="Cause" value={critic.rootCause} />
-      <KeyValue label="Next" value={critic.suggestion} />
+    <DataCard title={critic.name}>
+      <KeyValue label="Confidence" value={`${Math.round(critic.confidence * 100)}%`} />
+      <KeyValue label="Active" value={critic.active ? 'yes' : 'no'} />
+      <KeyValue label="Cause" value={critic.root_cause} />
+      <KeyValue label="Evidence" value={critic.evidence.join('; ') || '—'} />
     </DataCard>
   );
 }
 
 function IntegrationCard({ integration }: { integration: IntegrationStatus }) {
   return (
-    <DataCard title={integration.name}>
-      <KeyValue label="Status" value={integration.status} />
-      <KeyValue label="Mode" value={integration.mode} />
-      <KeyValue label="Env" value={integration.requiredEnvVars.join(', ') || 'none'} />
-      <KeyValue label="Fact" value={integration.description} />
+    <DataCard title={integration.label}>
+      <KeyValue label="Configured" value={integration.configured ? 'yes' : 'no'} />
+      <KeyValue label="Purpose" value={integration.purpose} />
+      <KeyValue label="Next" value={integration.next_step} />
     </DataCard>
   );
 }
