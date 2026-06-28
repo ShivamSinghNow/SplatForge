@@ -109,11 +109,6 @@ function SplatForgeApp() {
     })();
   }
 
-  function selectCommand(nextCommand: string) {
-    setCommand(nextCommand);
-    setNotice('Command loaded');
-  }
-
   function exportReport() {
     const report = {
       command: submittedCommand,
@@ -212,7 +207,6 @@ function SplatForgeApp() {
               notice={notice}
               onCommandChange={setCommand}
               onRun={runCommand}
-              onSelectCommand={selectCommand}
               onToggleVoice={() => {
                 setVoiceEnabled((enabled) => !enabled);
                 setNotice(voiceEnabled ? 'Voice disabled' : 'Voice enabled');
@@ -310,7 +304,6 @@ function CommandPanel({
   notice,
   onCommandChange,
   onRun,
-  onSelectCommand,
   onToggleVoice,
   voiceEnabled,
 }: {
@@ -318,8 +311,7 @@ function CommandPanel({
   loading: boolean;
   notice: string;
   onCommandChange: (value: string) => void;
-  onRun: () => void;
-  onSelectCommand: (value: string) => void;
+  onRun: (command?: string) => void;
   onToggleVoice: () => void;
   voiceEnabled: boolean;
 }) {
@@ -343,14 +335,19 @@ function CommandPanel({
           <Mic2 size={15} />
           Voice
         </button>
-        <button className="primary-button" disabled={loading} onClick={onRun} type="button">
+        <button className="primary-button" disabled={loading} onClick={() => onRun()} type="button">
           <Play size={15} />
           Run
         </button>
       </div>
       <div className="command-examples">
         {state.commandExamples.map((example) => (
-          <button key={example.id} onClick={() => onSelectCommand(example.label)} type="button">
+          <button
+            key={example.id}
+            disabled={loading}
+            onClick={() => onRun(example.label)}
+            type="button"
+          >
             {example.label}
           </button>
         ))}
