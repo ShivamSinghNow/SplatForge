@@ -199,7 +199,6 @@ function SplatForgeApp() {
             <SplatForgePreview
               currentStep={currentStep}
               policyVersion={state.run.adapterVersion}
-              run={state.run}
               task={state.task}
               world={state.world}
             />
