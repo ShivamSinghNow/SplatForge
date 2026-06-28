@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LoopStepId, TrainingTask, TrainingWorld } from '../../lib/types/splatforge';
+import { SplatErrorBoundary } from './SplatErrorBoundary';
 import { SplatViewer, type SplatScene } from './SplatViewer';
 
 interface SplatForgePreviewProps {
@@ -78,7 +79,14 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
         </div>
       </div>
 
-      {mode === 'scene' && scene ? <SplatViewer scene={scene} onError={setSplatError} /> : null}
+      {mode === 'scene' && scene ? (
+        <SplatErrorBoundary
+          key={scene.id}
+          fallback={<div className="preview-empty">Splat viewer unavailable (needs WebGL / a valid scan)</div>}
+        >
+          <SplatViewer scene={scene} onError={setSplatError} />
+        </SplatErrorBoundary>
+      ) : null}
       {mode === 'scene' && !scene ? (
         <div className="preview-empty">Drop a .splat/.ply in web/public/splats/ and list it in scenes.json</div>
       ) : null}

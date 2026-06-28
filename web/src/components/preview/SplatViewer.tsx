@@ -49,6 +49,11 @@ export function SplatViewer({ scene, onError }: SplatViewerProps) {
           }
         })
         .catch((error: unknown) => {
+          // Ignore errors from a viewer that React StrictMode already tore down
+          // (its load finishes after dispose and would otherwise show a false error).
+          if (disposed) {
+            return;
+          }
           onError?.(error instanceof Error ? error.message : `Failed to load ${scene.src}`);
         });
     } catch (error: unknown) {
