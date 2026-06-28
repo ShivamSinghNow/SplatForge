@@ -9,6 +9,8 @@ interface SuccessRateChartProps {
 
 const WIDTH = 280;
 const HEIGHT = 96;
+const PAD_X = 8; // keep the end dots/line off the left/right edges
+const PAD_Y = 6; // ...and off the top/bottom
 const DURATION_MS = 2000;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
@@ -20,16 +22,17 @@ export function SuccessRateChart({ points, currentRate, animate = true }: Succes
   const [progress, setProgress] = useState(animate ? 0 : 1);
 
   const maxIndex = useMemo(() => Math.max(...points.map((p) => p.index), 1), [points]);
+  const minIndex = points[0]?.index ?? 0;
+  const idxSpan = Math.max(maxIndex - minIndex, 1);
+  const xOf = (index: number) => PAD_X + ((index - minIndex) / idxSpan) * (WIDTH - 2 * PAD_X);
+  const yOf = (rate: number) => PAD_Y + (1 - rate / 100) * (HEIGHT - 2 * PAD_Y);
 
   const path = useMemo(() => {
     if (points.length === 0) return '';
     return points
-      .map((point, index) => {
-        const x = (point.index / maxIndex) * WIDTH;
-        const y = HEIGHT - (point.success_rate / 100) * HEIGHT;
-        return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-      })
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${xOf(point.index).toFixed(1)} ${yOf(point.success_rate).toFixed(1)}`)
       .join(' ');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, maxIndex]);
 
   // Animate progress 0 -> 1 whenever a run completes (or the curve changes).
@@ -71,6 +74,8 @@ export function SuccessRateChart({ points, currentRate, animate = true }: Succes
           className="success-chart-line"
           d={path}
           fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           style={{
             strokeDasharray: length,
             strokeDashoffset: length * (1 - progress),
@@ -78,8 +83,8 @@ export function SuccessRateChart({ points, currentRate, animate = true }: Succes
           }}
         />
         {points.map((point, index) => {
-          const x = (point.index / maxIndex) * 280;
-          const y = 96 - (point.success_rate / 100) * 96;
+          const x = xOf(point.index);
+          const y = yOf(point.success_rate);
           const reachedAt = index / lastIndex; // line reaches this point at this progress
           return (
             <circle
