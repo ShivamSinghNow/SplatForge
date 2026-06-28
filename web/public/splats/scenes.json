@@ -4,17 +4,41 @@
     "name": "Soda can on table",
     "src": "/splats/can.ply",
     "rollout": "/pick_can.mp4",
-    "cameraUp": [0, 1, 0],
-    "cameraPosition": [0, -2, 1.5],
-    "cameraLookAt": [0, 0, 0]
+    "cameraUp": [
+      0,
+      1,
+      0
+    ],
+    "cameraPosition": [
+      0.492,
+      0.501,
+      0.614
+    ],
+    "cameraLookAt": [
+      0.002,
+      0.011,
+      -0.016
+    ]
   },
   {
     "id": "placeholder",
     "name": "Placeholder cube",
     "src": "/splats/placeholder.splat",
     "rollout": "/pick_success.mp4",
-    "cameraUp": [0, 1, 0],
-    "cameraPosition": [2.2, 1.6, 2.2],
-    "cameraLookAt": [0, 0, 0]
+    "cameraUp": [
+      0,
+      1,
+      0
+    ],
+    "cameraPosition": [
+      2.2,
+      1.6,
+      2.2
+    ],
+    "cameraLookAt": [
+      0,
+      0,
+      0
+    ]
   }
 ]
