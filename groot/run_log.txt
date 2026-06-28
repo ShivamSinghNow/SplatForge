@@ -1,0 +1,10 @@
+[groot] device=cuda torch=2.7.1+cu128 cuda=12.8
+[groot] GPU: NVIDIA L40S
+[groot] model loaded: 3,144,016,000 parameters
+[groot] instruction: 'pick up the can'
+[groot] obs videos: [('exterior_image_1_left', (2, 180, 320, 3)), ('wrist_image_left', (2, 180, 320, 3))]
+[groot] PREDICTED ACTION CHUNK:
+    eef_9d: shape=(1, 40, 9) sample=[0.4174000024795532, -0.16740000247955322, 0.5160999894142151, -0.2498999983072281]
+    gripper_position: shape=(1, 40, 1) sample=[0.0, 0.0, 0.0, 0.0]
+    joint_position: shape=(1, 40, 7) sample=[-0.19519999623298645, -0.42160001397132874, -0.15240000188350677, -2.355799913406372]
+[groot] DONE -- GR00T produced an action chunk from a real observation.

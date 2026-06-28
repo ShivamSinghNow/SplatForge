@@ -28,6 +28,31 @@ ssh -i $DO_SSH_KEY_PATH $HOST 'tail -f ~/groot_setup.log'   # watch progress
 observation (robot images + state + the language instruction), printing the
 predicted action chunk. See that file for the exact command once setup finishes.
 
+## Result ✅
+GR00T N1.7 (3.14 B params) loaded on the L40S and, given a real DROID observation
+(two camera views + robot state) conditioned on the instruction **"pick up the
+can"**, predicted a **40-step action chunk**:
+
+| head | shape | meaning |
+|---|---|---|
+| `eef_9d` | (1, 40, 9) | end-effector 9-D pose over the horizon |
+| `gripper_position` | (1, 40, 1) | gripper open/close |
+| `joint_position` | (1, 40, 7) | 7-DoF joint targets |
+
+Evidence: [`inference_result.json`](inference_result.json), [`run_log.txt`](run_log.txt).
+
+## Gotchas hit (so the next run is one-shot)
+1. **conda ToS** — recent Miniconda blocks env creation until channel ToS is
+   accepted (`conda tos accept ...`). Handled in `setup_droplet.sh`.
+2. **install order** — `flash-attn`'s build imports torch, so torch must be
+   installed *first*; then the prebuilt flash-attn wheel (no source compile).
+3. **CUDA 13 box** — torch 2.7 pins Triton 3.3.1, which doesn't know CUDA 13 →
+   `scripts/patch_triton_cuda13.sh`.
+4. **gated HF repos** — need access to **both** `nvidia/GR00T-N1.7-3B` *and* its
+   backbone `nvidia/Cosmos-Reason2-2B` (accept terms on each page), plus `HF_TOKEN`.
+5. **git-lfs** — the repo's `demo_data/` are LFS pointers; `git lfs pull`.
+6. **ffmpeg** — torchcodec needs system FFmpeg libs (`apt install ffmpeg`).
+
 ## Notes
 - Honest framing: this is a **spike** — proof that GR00T loads and infers on our
   infra and emits actions for our task. It is not (yet) wired into the live loop.

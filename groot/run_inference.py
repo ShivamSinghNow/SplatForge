@@ -53,13 +53,16 @@ step = extract_step_data(
     allow_padding=False,
 )
 
+# The demo step may carry no language annotation; inject our task instruction so
+# the run shows GR00T conditioned on a real command.
+instruction = (step.text or "").strip() or "pick up the can"
 observation = {
     "video": {k: np.stack(step.images[k])[None] for k in step.images},
     "state": {k: step.states[k][None] for k in step.states},
     "action": {k: step.actions[k][None] for k in step.actions},
-    "language": {modality_config["language"].modality_keys[0]: [[step.text]]},
+    "language": {modality_config["language"].modality_keys[0]: [[instruction]]},
 }
-print(f"[groot] instruction: {step.text!r}")
+print(f"[groot] instruction: {instruction!r}")
 print(f"[groot] obs videos: {[(k, np.stack(step.images[k]).shape) for k in step.images]}")
 
 predicted_action, info = policy.get_action(observation)
@@ -75,7 +78,7 @@ result = {
     "model": MODEL_PATH,
     "embodiment": EMB.value,
     "gpu": torch.cuda.get_device_name(0) if device == "cuda" else "cpu",
-    "instruction": step.text,
+    "instruction": instruction,
     "param_count": total,
     "action": summary,
 }
