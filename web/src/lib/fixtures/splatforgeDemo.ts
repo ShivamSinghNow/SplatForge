@@ -218,10 +218,10 @@ export const demoIntegrations: IntegrationStatus[] = [
   },
   {
     name: 'MiniMax',
-    status: 'missing',
-    description: 'Second critic for disagreement and multimodal variant suggestions.',
+    status: 'connected',
+    description: 'Second independent LLM critic in the council (real MiniMax API).',
     requiredEnvVars: ['MINIMAX_API_KEY'],
-    mode: 'optional critic',
+    mode: 'AI council',
   },
   {
     name: 'MongoDB',

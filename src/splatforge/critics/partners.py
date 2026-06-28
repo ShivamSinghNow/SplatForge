@@ -32,12 +32,6 @@ class _PartnerPlaceholderCritic(Critic):
         )
 
 
-class MiniMaxCritic(_PartnerPlaceholderCritic):
-    critic_name = CriticName.MINIMAX
-    env_var = "MINIMAX_API_KEY"
-    role = "a second multimodal critic and creative variant generator"
-
-
 class GemmaCritic(_PartnerPlaceholderCritic):
     critic_name = CriticName.GEMMA
     env_var = "GEMMA_ENDPOINT"

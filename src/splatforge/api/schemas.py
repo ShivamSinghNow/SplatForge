@@ -217,8 +217,8 @@ def integration_statuses() -> list[IntegrationStatus]:
             id="minimax",
             label="MiniMax",
             configured=bool(os.getenv("MINIMAX_API_KEY")),
-            purpose="Optional second critic and creative scenario generator.",
-            next_step="Set MINIMAX_API_KEY after the Gemini flow is working.",
+            purpose="Second independent LLM critic in the council (real MiniMax API).",
+            next_step="Set MINIMAX_API_KEY in .env to add a second independent critic.",
         ),
         IntegrationStatus(
             id="mongodb",

@@ -102,7 +102,8 @@ function SplatForgeApp() {
   function runCommand(nextCommand = command) {
     // Demo strategy (A7): replay the banked real curve — instant + dramatic — rather
     // than blocking ~27s on a live Gemini-critic run. The steps animate immediately.
-    const cmd = (nextCommand ?? command) || '';
+    // Guard against being wired directly to onClick (which would pass an event).
+    const cmd = typeof nextCommand === 'string' ? nextCommand : command;
     if (cmd.trim()) {
       setCommand(cmd);
     }
@@ -316,7 +317,7 @@ function SplatForgeApp() {
           <aside className="right-panel">
             <Panel title="Run">
               <SuccessRateChart
-                animate={phase === 'complete'}
+                animate={phase === 'running'}
                 currentRate={metrics.current_rate}
                 points={metrics.points}
               />
