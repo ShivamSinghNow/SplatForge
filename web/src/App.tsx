@@ -558,6 +558,23 @@ function GrootSection() {
           </figcaption>
         </figure>
       </div>
+
+      <section className="groot-compare">
+        <h3>Your policy vs GR00T</h3>
+        <div className="compare-row compare-head">
+          <span className="compare-dim" />
+          <span>Your policy (LoRA)</span>
+          <span>GR00T N1.7</span>
+        </div>
+        {g.comparison.map((row) => (
+          <div className="compare-row" key={row.dim}>
+            <span className="compare-dim">{row.dim}</span>
+            <span>{row.policy}</span>
+            <span>{row.groot}</span>
+          </div>
+        ))}
+        <p className="compare-note">{g.comparisonNote}</p>
+      </section>
     </>
   );
 }
