@@ -139,9 +139,9 @@ def _scene_mjcf(target: str = "can", clutter: bool = False) -> str:
 
     <body name="pen" pos="{px} {py} {TABLE_H + 0.0065}" euler="0 1.5708 -0.55">
       {pen_j}
-      <geom type="cylinder" size="0.0062 0.07" material="pen" mass="0.03" {pen_c}/>
-      <geom type="cylinder" size="0.0058 0.012" pos="0 0 0.078" material="metal" contype="0" conaffinity="0"/>
-      <geom type="cylinder" size="0.0068 0.016" pos="0 0 -0.05" material="pencap" contype="0" conaffinity="0"/>
+      <geom type="cylinder" size="0.0062 0.066" material="pen" mass="0.03" {pen_c}/>
+      <geom type="cylinder" size="0.0058 0.013" pos="0 0 0.072" material="metal" contype="0" conaffinity="0"/>
+      <geom type="cylinder" size="0.0068 0.013" pos="0 0 -0.072" material="pencap" contype="0" conaffinity="0"/>
     </body>
 {clutter_xml}
     <body name="pedestal" pos="{BASE_X} {BASE_Y} {TABLE_H}">
