@@ -44,6 +44,9 @@ Thumbs.db
 *.swp
 .gstack/
 
+# MuJoCo writes a log file at render time
+MUJOCO_LOG.TXT
+
 # Gaussian splat scans — large; drop your own in web/public/splats/.
 # Keep the manifest and the placeholder.
 web/public/splats/*
