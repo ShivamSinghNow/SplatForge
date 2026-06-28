@@ -14,13 +14,15 @@ interface SplatForgePreviewProps {
   policyVersion: string;
   playToken: number;
   rolloutClip?: string; // override the rollout clip (e.g. play the failed case)
+  rolloutLabel?: string; // HUD label for the rollout (e.g. "Grasp the pen")
+  instruction?: string; // the live typed command, shown in the bottom HUD
 }
 
 type Mode = 'scene' | 'rollout';
 
 // Two views: the real Gaussian-splat reconstruction (fly-through) and the real
 // MuJoCo pick rollout (mp4). A run switches to the rollout and plays it from the top.
-export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken, rolloutClip }: SplatForgePreviewProps) {
+export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken, rolloutClip, rolloutLabel, instruction }: SplatForgePreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<Mode>('scene');
   const [scenes, setScenes] = useState<SplatScene[]>([]);
@@ -97,7 +99,7 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
       <div className="preview-hud preview-hud-top">
         <div>
           <span className="hud-kicker">{mode === 'scene' ? 'Reconstructed world' : 'MuJoCo rollout'}</span>
-          <strong>{mode === 'scene' ? scene?.name ?? world.name : 'Grasp the can'}</strong>
+          <strong>{mode === 'scene' ? scene?.name ?? world.name : rolloutLabel ?? 'Grasp the can'}</strong>
         </div>
         <div className="preview-toggle">
           <button className={mode === 'scene' ? 'on' : ''} onClick={() => setMode('scene')} type="button">
@@ -163,7 +165,7 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
       <div className="preview-hud preview-hud-bottom">
         <div>
           <span className="hud-kicker">Task</span>
-          <strong>{task.instruction}</strong>
+          <strong>{instruction ?? task.instruction}</strong>
         </div>
         <div>
           <span className="hud-kicker">Policy</span>
