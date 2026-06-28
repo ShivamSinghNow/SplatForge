@@ -219,6 +219,34 @@ function SplatForgeApp() {
               }}
               voiceEnabled={voiceEnabled}
             />
+
+            <section className="loop-strip" aria-label="Loop">
+              {steps.map((step) => (
+                <button
+                  className={`loop-step loop-step-${step.status}`}
+                  key={step.id}
+                  onClick={() => {
+                    setStep(step.id);
+                    setNotice(`${step.label} selected`);
+                  }}
+                  type="button"
+                >
+                  <span className="loop-node" />
+                  <strong>{step.label}</strong>
+                </button>
+              ))}
+            </section>
+
+            <section className="detail-panel">
+              <DetailSection
+                activeSection={activeSection}
+                improvement={improvement}
+                onExport={exportReport}
+                onOpenReplay={openReplay}
+                onRun={runCommand}
+                onSelectSection={setActiveSection}
+              />
+            </section>
           </section>
 
           <aside className="right-panel">
@@ -270,34 +298,6 @@ function SplatForgeApp() {
               </button>
             </Panel>
           </aside>
-        </section>
-
-        <section className="loop-strip" aria-label="Loop">
-          {steps.map((step) => (
-            <button
-              className={`loop-step loop-step-${step.status}`}
-              key={step.id}
-              onClick={() => {
-                setStep(step.id);
-                setNotice(`${step.label} selected`);
-              }}
-              type="button"
-            >
-              <span className="loop-node" />
-              <strong>{step.label}</strong>
-            </button>
-          ))}
-        </section>
-
-        <section className="detail-panel">
-          <DetailSection
-            activeSection={activeSection}
-            improvement={improvement}
-            onExport={exportReport}
-            onOpenReplay={openReplay}
-            onRun={runCommand}
-            onSelectSection={setActiveSection}
-          />
         </section>
       </main>
     </div>

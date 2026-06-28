@@ -6,19 +6,25 @@
     "rollout": "/pick_can.mp4",
     "cameraUp": [
       0,
-      1,
+      -1,
       0
     ],
     "cameraPosition": [
-      0.492,
-      0.501,
-      0.614
+      11.065,
+      -10.134,
+      12.334
     ],
     "cameraLookAt": [
-      0.002,
-      0.011,
-      -0.016
-    ]
+      0.107,
+      -0.546,
+      0.007
+    ],
+    "armRig": "/rigs/arm_can.json",
+    "armPlacement": {
+      "scale": 0.56,
+      "yawDeg": -25,
+      "anchor": [0.07, -0.6, 0.11]
+    }
   },
   {
     "id": "placeholder",
