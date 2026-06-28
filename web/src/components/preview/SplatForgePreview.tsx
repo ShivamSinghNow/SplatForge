@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { LoopStepId, TrainingTask, TrainingWorld } from '../../lib/types/splatforge';
 
 interface SplatForgePreviewProps {
@@ -5,20 +6,24 @@ interface SplatForgePreviewProps {
   task: TrainingTask;
   currentStep: LoopStepId;
   policyVersion: string;
+  playToken: number;
 }
 
-// Real MuJoCo rollouts rendered to GIF (see sim/render_rollout.py). The robot
-// physically grasps + lifts the mug on success, and misses on a failed attempt.
-const FAIL_STEPS: LoopStepId[] = ['attempt', 'critique', 'curriculum', 'train'];
+// Real MuJoCo rollout rendered to mp4 (see sim/render_rollout.py): the two-finger
+// gripper descends, grasps the mug, and lifts it. Replays from the top on each run.
+export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken }: SplatForgePreviewProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-export function SplatForgePreview({ world, task, currentStep, policyVersion }: SplatForgePreviewProps) {
-  const failing = FAIL_STEPS.includes(currentStep);
-  const clip = failing ? '/pick_fail.gif' : '/pick_success.gif';
-  const outcome = failing
-    ? 'grasp missed'
-    : currentStep === 'world'
-      ? 'reconstructed scene'
-      : 'grasp succeeded';
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+    video.currentTime = 0;
+    void video.play().catch(() => {
+      /* autoplay can be blocked until a user gesture; the Run click provides one */
+    });
+  }, [playToken]);
 
   return (
     <section className="preview-stage" aria-label="Reconstructed robot training world">
@@ -30,7 +35,15 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion }: S
         <div className="hud-pill">{world.sourceType === 'placeholder' ? 'MuJoCo rollout' : world.sourceType}</div>
       </div>
 
-      <img className="preview-clip" src={clip} alt={`Robot pick rollout — ${outcome}`} />
+      <video
+        ref={videoRef}
+        className="preview-clip"
+        src="/pick_success.mp4"
+        muted
+        playsInline
+        autoPlay
+        preload="auto"
+      />
 
       <div className="preview-hud preview-hud-bottom">
         <div>
@@ -43,7 +56,7 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion }: S
         </div>
         <div>
           <span className="hud-kicker">Phase</span>
-          <strong>{currentStep} · {outcome}</strong>
+          <strong>{currentStep}</strong>
         </div>
       </div>
     </section>

@@ -53,6 +53,7 @@ function SplatForgeApp() {
   const [command, setCommand] = useState(state.task.instruction);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [notice, setNotice] = useState('Ready');
+  const [playToken, setPlayToken] = useState(0);
   const [apiOnline, setApiOnline] = useState(false);
   const [metrics, setMetrics] = useState<SuccessRateSeries>({
     points: [
@@ -93,6 +94,7 @@ function SplatForgeApp() {
     setActiveSection('runs');
     setNotice('Replaying self-improvement run...');
     replayCachedRun();
+    setPlayToken((token) => token + 1);
     void (async () => {
       try {
         setMetrics(await fetchCachedCurve('overnight'));
@@ -142,6 +144,7 @@ function SplatForgeApp() {
         /* keep current metrics if the cache isn't being served */
       }
       replayCachedRun();
+      setPlayToken((token) => token + 1);
       setActiveSection('memory');
       setNotice('Replaying cached run');
     })();
@@ -198,6 +201,7 @@ function SplatForgeApp() {
           <section className="preview-column">
             <SplatForgePreview
               currentStep={currentStep}
+              playToken={playToken}
               policyVersion={state.run.adapterVersion}
               task={state.task}
               world={state.world}

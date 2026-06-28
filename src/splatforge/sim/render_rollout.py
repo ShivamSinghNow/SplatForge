@@ -12,7 +12,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import mujoco
-from PIL import Image
 
 _MUG_R = 0.04
 _MUG_HH = 0.05
@@ -99,7 +98,7 @@ def render_pick(
     cam.elevation = -17
 
     renderer = mujoco.Renderer(model, height=height, width=width)
-    frames: list[Image.Image] = []
+    frames: list = []
     step_i = 0
 
     target_x = mug_x + (0.135 if not success else 0.0)  # miss to the side on failure
@@ -114,7 +113,7 @@ def render_pick(
             mujoco.mj_step(model, data)
             if step_i % capture_every == 0:
                 renderer.update_scene(data, camera=cam)
-                frames.append(Image.fromarray(renderer.render()))
+                frames.append(renderer.render().copy())
             step_i += 1
 
     run(mug_x, 0.42, 90)          # hover
@@ -128,12 +127,26 @@ def render_pick(
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    frames[0].save(
-        out_path,
-        save_all=True,
-        append_images=frames[1:],
-        duration=55,
-        loop=0,
-        optimize=True,
-    )
+    if out_path.suffix.lower() == ".mp4":
+        import imageio.v2 as imageio
+
+        imageio.mimwrite(
+            out_path,
+            frames,
+            fps=22,
+            macro_block_size=None,
+            output_params=["-pix_fmt", "yuv420p"],
+        )
+    else:
+        from PIL import Image
+
+        images = [Image.fromarray(frame) for frame in frames]
+        images[0].save(
+            out_path,
+            save_all=True,
+            append_images=images[1:],
+            duration=55,
+            loop=0,
+            optimize=True,
+        )
     return out_path
