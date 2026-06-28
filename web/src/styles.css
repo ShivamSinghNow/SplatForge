@@ -253,6 +253,72 @@ p {
   background: var(--black-0);
 }
 
+.splat-viewer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--black-0);
+  overflow: hidden;
+}
+
+.splat-viewer canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.preview-toggle {
+  display: flex;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.preview-toggle button {
+  min-height: 24px;
+  padding: 0 10px;
+  color: var(--text-2);
+  background: var(--black-4);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.preview-toggle button.on {
+  color: var(--white);
+  background: var(--black-5);
+  border-color: var(--white);
+}
+
+.preview-scene-picker {
+  position: absolute;
+  bottom: 64px;
+  left: 10px;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+.preview-scene-picker select {
+  padding: 5px 9px;
+  color: var(--text);
+  background: var(--black-3);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.preview-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+}
+
 .preview-hud {
   position: absolute;
   z-index: 4;
