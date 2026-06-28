@@ -13,13 +13,14 @@ interface SplatForgePreviewProps {
   currentStep: LoopStepId;
   policyVersion: string;
   playToken: number;
+  rolloutClip?: string; // override the rollout clip (e.g. play the failed case)
 }
 
 type Mode = 'scene' | 'rollout';
 
 // Two views: the real Gaussian-splat reconstruction (fly-through) and the real
 // MuJoCo pick rollout (mp4). A run switches to the rollout and plays it from the top.
-export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken }: SplatForgePreviewProps) {
+export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken, rolloutClip }: SplatForgePreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<Mode>('scene');
   const [scenes, setScenes] = useState<SplatScene[]>([]);
@@ -134,7 +135,7 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
       <video
         ref={videoRef}
         className="preview-clip"
-        src={scene?.rollout ?? '/pick_success.mp4'}
+        src={rolloutClip ?? scene?.rollout ?? '/pick_success.mp4'}
         muted
         playsInline
         preload="auto"

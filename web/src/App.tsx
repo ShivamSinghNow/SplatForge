@@ -54,6 +54,7 @@ function SplatForgeApp() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [notice, setNotice] = useState('Ready');
   const [playToken, setPlayToken] = useState(0);
+  const [rolloutClip, setRolloutClip] = useState<string | undefined>(undefined);
   const [apiOnline, setApiOnline] = useState(false);
   const [metrics, setMetrics] = useState<SuccessRateSeries>({
     points: [
@@ -107,6 +108,49 @@ function SplatForgeApp() {
         }
       }
     })();
+  }
+
+  // Each command suggestion drives a distinct, label-matching action across the
+  // dashboard's real panels (run / curriculum / retest / train / council).
+  function runExample(id: string) {
+    const example = state.commandExamples.find((item) => item.id === id);
+    setCommand(example?.label ?? '');
+
+    switch (id) {
+      case 'recover_grasp':
+        // Flagship self-improvement run: replay the climbing curve + success grasp.
+        setRolloutClip(undefined);
+        runCommand(example?.label);
+        break;
+      case 'harder_variations':
+        // Curriculum: surface the generated world variations.
+        setStep('curriculum');
+        setActiveSection('worlds');
+        setNotice('Generating harder pickup variations (curriculum)...');
+        break;
+      case 'retest_original':
+        // Retest: play the original failed-case rollout.
+        setStep('retest');
+        setActiveSection('runs');
+        setRolloutClip('/pick_fail.mp4');
+        setNotice('Retesting the original failed case...');
+        setPlayToken((token) => token + 1);
+        break;
+      case 'train_successes':
+        // Train: show the policy / LoRA adapter the successes distil into.
+        setStep('train');
+        setActiveSection('policy');
+        setNotice('Training adapter on successful trajectories...');
+        break;
+      case 'explain_council':
+        // Critique: open the AI council's verdict.
+        setStep('critique');
+        setActiveSection('council');
+        setNotice('Opening the AI council verdict...');
+        break;
+      default:
+        runCommand(example?.label);
+    }
   }
 
   function exportReport() {
@@ -198,6 +242,7 @@ function SplatForgeApp() {
               currentStep={currentStep}
               playToken={playToken}
               policyVersion={state.run.adapterVersion}
+              rolloutClip={rolloutClip}
               task={state.task}
               world={state.world}
             />
@@ -207,6 +252,7 @@ function SplatForgeApp() {
               notice={notice}
               onCommandChange={setCommand}
               onRun={runCommand}
+              onExample={runExample}
               onToggleVoice={() => {
                 setVoiceEnabled((enabled) => !enabled);
                 setNotice(voiceEnabled ? 'Voice disabled' : 'Voice enabled');
@@ -304,6 +350,7 @@ function CommandPanel({
   notice,
   onCommandChange,
   onRun,
+  onExample,
   onToggleVoice,
   voiceEnabled,
 }: {
@@ -312,6 +359,7 @@ function CommandPanel({
   notice: string;
   onCommandChange: (value: string) => void;
   onRun: (command?: string) => void;
+  onExample: (id: string) => void;
   onToggleVoice: () => void;
   voiceEnabled: boolean;
 }) {
@@ -345,7 +393,7 @@ function CommandPanel({
           <button
             key={example.id}
             disabled={loading}
-            onClick={() => onRun(example.label)}
+            onClick={() => onExample(example.id)}
             type="button"
           >
             {example.label}
