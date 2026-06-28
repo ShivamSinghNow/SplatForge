@@ -43,8 +43,8 @@ _OBJECTS = {
     "notebook": {
         "pos": NOTEBOOK_POS,
         "grasp_z": TABLE_H + 0.035,
-        "lift_z": TABLE_H + 0.24,
-        "present_tilt": 0.5,
+        "lift_z": TABLE_H + 0.26,
+        "present_tilt": 1.2,  # rotate it up toward vertical -> held on its edge
         "label": "the notebook",
     },
 }
@@ -323,7 +323,8 @@ def render_pick(
         _weld_here(model, data, eq, b_wrist, b_target)
     move(grasp_t, grasp_t, 45)  # close + settle the grip
     move(grasp_t, lift_t, 150)  # lift straight up, clear of the table
-    move(lift_t, lift_t, 40, 0.0, present_tilt)  # brief hold (optional present tilt), then end
+    move(lift_t, lift_t, 75, 0.0, present_tilt)  # rotate to present (e.g. notebook -> sideways)
+    move(lift_t, lift_t, 10, present_tilt, present_tilt)  # brief settle, then end (before a flat object slips)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
