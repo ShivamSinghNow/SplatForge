@@ -30,7 +30,7 @@ TABLE_HZ = 0.018  # tabletop half-thickness
 CAN_R, CAN_HH = 0.033, 0.06
 CAN_POS = (0.06, 0.03)
 CAN_Z = TABLE_H + CAN_HH
-NOTEBOOK_POS = (-0.05, -0.17)
+NOTEBOOK_POS = (-0.04, -0.08)  # within comfortable arm reach so it lifts cleanly
 PEN_POS = (0.17, -0.10)
 
 # Grasp parameters per selectable object: (x, y) on the table, the fingertip
@@ -38,7 +38,15 @@ PEN_POS = (0.17, -0.10)
 _OBJECTS = {
     "can": {"pos": CAN_POS, "grasp_z": CAN_Z - 0.01, "lift_z": CAN_Z + 0.24, "label": "the can"},
     "pen": {"pos": PEN_POS, "grasp_z": TABLE_H + 0.02, "lift_z": TABLE_H + 0.24, "label": "the pen"},
-    "notebook": {"pos": NOTEBOOK_POS, "grasp_z": TABLE_H + 0.04, "lift_z": TABLE_H + 0.26, "label": "the notebook"},
+    # Notebook is flat -> lift higher and "present" it (tilt the wrist) so its
+    # face turns toward the camera instead of lifting edge-on.
+    "notebook": {
+        "pos": NOTEBOOK_POS,
+        "grasp_z": TABLE_H + 0.03,
+        "lift_z": TABLE_H + 0.22,
+        "present_tilt": 0.6,
+        "label": "the notebook",
+    },
 }
 
 BASE_X, BASE_Y = -0.34, 0.18
@@ -92,7 +100,7 @@ def _scene_mjcf(target: str = "can", clutter: bool = False) -> str:
     <material name="woodleg" rgba="0.32 0.20 0.12 1" specular="0.2" shininess="0.3"/>
     <material name="can" rgba="0.83 0.11 0.12 1" specular="0.6" shininess="0.75"/>
     <material name="metal" rgba="0.66 0.68 0.72 1" specular="0.75" shininess="0.85"/>
-    <material name="notecover" rgba="0.13 0.17 0.33 1" specular="0.2" shininess="0.3"/>
+    <material name="notecover" rgba="0.16 0.45 0.85 1" specular="0.35" shininess="0.5"/>
     <material name="paper" rgba="0.92 0.91 0.86 1" specular="0.08" shininess="0.15"/>
     <material name="pen" rgba="0.10 0.22 0.55 1" specular="0.5" shininess="0.7"/>
     <material name="pencap" rgba="0.80 0.16 0.16 1" specular="0.5" shininess="0.7"/>
@@ -125,8 +133,8 @@ def _scene_mjcf(target: str = "can", clutter: bool = False) -> str:
 
     <body name="notebook" pos="{nx} {ny} {TABLE_H + 0.001}" euler="0 0 0.35">
       {nb_j}
-      <geom type="box" size="0.086 0.061 0.008" pos="0 0 0.008" material="notecover" mass="0.2" {nb_c}/>
-      <geom type="box" size="0.080 0.055 0.007" pos="0.004 0 0.018" material="paper" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.095 0.07 0.011" pos="0 0 0.011" material="notecover" mass="0.12" {nb_c}/>
+      <geom type="box" size="0.088 0.063 0.009" pos="0.005 0 0.023" material="paper" contype="0" conaffinity="0"/>
     </body>
 
     <body name="pen" pos="{px} {py} {TABLE_H + 0.0065}" euler="0 1.5708 -0.55">
@@ -234,6 +242,7 @@ def render_pick(
     spec = _OBJECTS[target]
     tx, ty = spec["pos"]
     grasp_z, lift_z = spec["grasp_z"], spec["lift_z"]
+    present_tilt = spec.get("present_tilt", 0.0)
 
     model = mujoco.MjModel.from_xml_string(_scene_mjcf(target, clutter))
     data = mujoco.MjData(model)
@@ -284,18 +293,20 @@ def render_pick(
     frames: list = []
     step_i = 0
 
-    def set_ctrl(q3):
+    def set_ctrl(q3, wrist_tilt=0.0):
         data.ctrl[aid("a_yaw")] = q3[0]
         data.ctrl[aid("a_shoulder")] = q3[1]
         data.ctrl[aid("a_elbow")] = q3[2]
-        data.ctrl[aid("a_wrist")] = -(q3[1] + q3[2])
+        # Level the gripper (point down); +wrist_tilt "presents" a flat object.
+        data.ctrl[aid("a_wrist")] = -(q3[1] + q3[2]) + wrist_tilt
 
-    def move(p0, p1, steps):
+    def move(p0, p1, steps, tilt0=0.0, tilt1=0.0):
         nonlocal step_i
         p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
         for i in range(steps):
-            tgt = p0 + (p1 - p0) * ((i + 1) / steps)
-            set_ctrl(ik_to(tgt, iters=40))
+            f = (i + 1) / steps
+            tgt = p0 + (p1 - p0) * f
+            set_ctrl(ik_to(tgt, iters=40), tilt0 + (tilt1 - tilt0) * f)
             mujoco.mj_step(model, data)
             if step_i % capture_every == 0:
                 renderer.update_scene(data, camera=cam)
@@ -307,8 +318,9 @@ def render_pick(
     if success:
         _weld_here(model, data, eq, b_wrist, b_target)
     move(grasp_t, grasp_t, 45)  # close + settle the grip
-    move(grasp_t, lift_t, 150)  # straight up
-    move(lift_t, lift_t, 55)  # hold
+    move(grasp_t, lift_t, 150)  # lift straight up, clear of the table
+    move(lift_t, lift_t, 70, 0.0, present_tilt)  # then tilt to present a flat object
+    move(lift_t, lift_t, 35, present_tilt, present_tilt)  # hold, presented
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
