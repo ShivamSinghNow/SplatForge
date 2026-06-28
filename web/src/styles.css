@@ -39,7 +39,7 @@ body,
 
 body {
   min-height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
   background: var(--black-0);
 }
 
@@ -73,7 +73,7 @@ p {
 .app-shell {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
-  height: 100vh;
+  min-height: 100vh;
   background: var(--black-0);
 }
 
@@ -84,6 +84,10 @@ p {
   padding: 14px 10px;
   background: var(--black-1);
   border-right: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
 }
 
 .brand-lockup {
@@ -150,7 +154,7 @@ p {
 
 .app-main {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto;
   gap: 12px;
   min-width: 0;
   min-height: 0;
@@ -220,13 +224,14 @@ p {
 .main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 292px;
+  align-items: start;
   gap: 12px;
   min-height: 0;
 }
 
 .preview-column {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   min-width: 0;
   min-height: 0;
@@ -234,7 +239,7 @@ p {
 
 .preview-stage {
   position: relative;
-  min-height: 0;
+  height: clamp(330px, 45vh, 500px);
   overflow: hidden;
   background: var(--black-0);
   border: 1px solid var(--line);
@@ -296,6 +301,99 @@ p {
   left: 10px;
   z-index: 5;
   pointer-events: auto;
+}
+
+.calib-panel {
+  position: absolute;
+  top: 52px;
+  right: 10px;
+  z-index: 6;
+  width: 232px;
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  pointer-events: auto;
+  font-size: 11px;
+}
+
+.calib-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calib-head strong {
+  font-size: 12px;
+}
+
+.calib-head button {
+  width: 20px;
+  height: 20px;
+  color: var(--text-2);
+  background: var(--black-4);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.calib-row {
+  display: grid;
+  grid-template-columns: 58px 1fr 48px;
+  align-items: center;
+  gap: 6px;
+}
+
+.calib-row span {
+  color: var(--text-2);
+}
+
+.calib-row input[type='range'] {
+  width: 100%;
+}
+
+.calib-row input[type='number'] {
+  width: 100%;
+  padding: 2px 4px;
+  color: var(--text);
+  background: var(--black-3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.calib-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.calib-copy {
+  min-height: 28px;
+  color: var(--black-0);
+  background: var(--white);
+  border: 1px solid var(--white);
+  border-radius: 5px;
+  font-weight: 700;
+}
+
+.calib-reopen {
+  position: absolute;
+  top: 52px;
+  right: 10px;
+  z-index: 6;
+  min-height: 26px;
+  padding: 0 10px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  pointer-events: auto;
+  font-size: 11px;
 }
 
 .preview-scene-picker select {
@@ -676,6 +774,7 @@ p {
     position: sticky;
     top: 0;
     z-index: 10;
+    height: auto;
     flex-direction: row;
     overflow-x: auto;
     border-right: 0;

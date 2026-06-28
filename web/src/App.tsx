@@ -54,6 +54,7 @@ function SplatForgeApp() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [notice, setNotice] = useState('Ready');
   const [playToken, setPlayToken] = useState(0);
+  const [rolloutClip, setRolloutClip] = useState<string | undefined>(undefined);
   const [apiOnline, setApiOnline] = useState(false);
   const [metrics, setMetrics] = useState<SuccessRateSeries>({
     points: [
@@ -109,9 +110,50 @@ function SplatForgeApp() {
     })();
   }
 
-  function selectCommand(nextCommand: string) {
-    setCommand(nextCommand);
-    setNotice('Command loaded');
+  // Each command suggestion drives a distinct, label-matching action across the
+  // dashboard's real panels (run / curriculum / retest / train / council).
+  function runExample(id: string) {
+    const example = state.commandExamples.find((item) => item.id === id);
+    setCommand(example?.label ?? '');
+
+    switch (id) {
+      case 'recover_grasp':
+        // Flagship self-improvement run: replay the climbing curve + success grasp.
+        setRolloutClip(undefined);
+        runCommand(example?.label);
+        break;
+      case 'harder_variations':
+        // Curriculum: play the harder, cluttered variation (bowl + block) and
+        // surface the generated world variations.
+        setStep('curriculum');
+        setActiveSection('worlds');
+        setRolloutClip('/pick_can_hard.mp4');
+        setNotice('Generating a harder variation — added clutter (bowl + block)...');
+        setPlayToken((token) => token + 1);
+        break;
+      case 'retest_original':
+        // Retest: play the original failed-case rollout.
+        setStep('retest');
+        setActiveSection('runs');
+        setRolloutClip('/pick_fail.mp4');
+        setNotice('Retesting the original failed case...');
+        setPlayToken((token) => token + 1);
+        break;
+      case 'train_successes':
+        // Train: show the policy / LoRA adapter the successes distil into.
+        setStep('train');
+        setActiveSection('policy');
+        setNotice('Training adapter on successful trajectories...');
+        break;
+      case 'explain_council':
+        // Critique: open the AI council's verdict.
+        setStep('critique');
+        setActiveSection('council');
+        setNotice('Opening the AI council verdict...');
+        break;
+      default:
+        runCommand(example?.label);
+    }
   }
 
   function exportReport() {
@@ -203,6 +245,7 @@ function SplatForgeApp() {
               currentStep={currentStep}
               playToken={playToken}
               policyVersion={state.run.adapterVersion}
+              rolloutClip={rolloutClip}
               task={state.task}
               world={state.world}
             />
@@ -212,13 +255,41 @@ function SplatForgeApp() {
               notice={notice}
               onCommandChange={setCommand}
               onRun={runCommand}
-              onSelectCommand={selectCommand}
+              onExample={runExample}
               onToggleVoice={() => {
                 setVoiceEnabled((enabled) => !enabled);
                 setNotice(voiceEnabled ? 'Voice disabled' : 'Voice enabled');
               }}
               voiceEnabled={voiceEnabled}
             />
+
+            <section className="loop-strip" aria-label="Loop">
+              {steps.map((step) => (
+                <button
+                  className={`loop-step loop-step-${step.status}`}
+                  key={step.id}
+                  onClick={() => {
+                    setStep(step.id);
+                    setNotice(`${step.label} selected`);
+                  }}
+                  type="button"
+                >
+                  <span className="loop-node" />
+                  <strong>{step.label}</strong>
+                </button>
+              ))}
+            </section>
+
+            <section className="detail-panel">
+              <DetailSection
+                activeSection={activeSection}
+                improvement={improvement}
+                onExport={exportReport}
+                onOpenReplay={openReplay}
+                onRun={runCommand}
+                onSelectSection={setActiveSection}
+              />
+            </section>
           </section>
 
           <aside className="right-panel">
@@ -271,34 +342,6 @@ function SplatForgeApp() {
             </Panel>
           </aside>
         </section>
-
-        <section className="loop-strip" aria-label="Loop">
-          {steps.map((step) => (
-            <button
-              className={`loop-step loop-step-${step.status}`}
-              key={step.id}
-              onClick={() => {
-                setStep(step.id);
-                setNotice(`${step.label} selected`);
-              }}
-              type="button"
-            >
-              <span className="loop-node" />
-              <strong>{step.label}</strong>
-            </button>
-          ))}
-        </section>
-
-        <section className="detail-panel">
-          <DetailSection
-            activeSection={activeSection}
-            improvement={improvement}
-            onExport={exportReport}
-            onOpenReplay={openReplay}
-            onRun={runCommand}
-            onSelectSection={setActiveSection}
-          />
-        </section>
       </main>
     </div>
   );
@@ -310,7 +353,7 @@ function CommandPanel({
   notice,
   onCommandChange,
   onRun,
-  onSelectCommand,
+  onExample,
   onToggleVoice,
   voiceEnabled,
 }: {
@@ -318,8 +361,8 @@ function CommandPanel({
   loading: boolean;
   notice: string;
   onCommandChange: (value: string) => void;
-  onRun: () => void;
-  onSelectCommand: (value: string) => void;
+  onRun: (command?: string) => void;
+  onExample: (id: string) => void;
   onToggleVoice: () => void;
   voiceEnabled: boolean;
 }) {
@@ -343,14 +386,19 @@ function CommandPanel({
           <Mic2 size={15} />
           Voice
         </button>
-        <button className="primary-button" disabled={loading} onClick={onRun} type="button">
+        <button className="primary-button" disabled={loading} onClick={() => onRun()} type="button">
           <Play size={15} />
           Run
         </button>
       </div>
       <div className="command-examples">
         {state.commandExamples.map((example) => (
-          <button key={example.id} onClick={() => onSelectCommand(example.label)} type="button">
+          <button
+            key={example.id}
+            disabled={loading}
+            onClick={() => onExample(example.id)}
+            type="button"
+          >
             {example.label}
           </button>
         ))}

@@ -49,3 +49,4 @@ Thumbs.db
 web/public/splats/*
 !web/public/splats/scenes.json
 !web/public/splats/placeholder.splat
+!web/public/splats/README.md

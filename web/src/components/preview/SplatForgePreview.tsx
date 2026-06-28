@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LoopStepId, TrainingTask, TrainingWorld } from '../../lib/types/splatforge';
+import { ArmCalibrationPanel } from './ArmCalibrationPanel';
+import type { ArmPlacement } from './robotArm';
+import { SplatErrorBoundary } from './SplatErrorBoundary';
 import { SplatViewer, type SplatScene } from './SplatViewer';
+
+const placementKey = (id: string) => `splatforge:armPlacement:${id}`;
 
 interface SplatForgePreviewProps {
   world: TrainingWorld;
@@ -8,18 +13,20 @@ interface SplatForgePreviewProps {
   currentStep: LoopStepId;
   policyVersion: string;
   playToken: number;
+  rolloutClip?: string; // override the rollout clip (e.g. play the failed case)
 }
 
 type Mode = 'scene' | 'rollout';
 
 // Two views: the real Gaussian-splat reconstruction (fly-through) and the real
 // MuJoCo pick rollout (mp4). A run switches to the rollout and plays it from the top.
-export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken }: SplatForgePreviewProps) {
+export function SplatForgePreview({ world, task, currentStep, policyVersion, playToken, rolloutClip }: SplatForgePreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<Mode>('scene');
   const [scenes, setScenes] = useState<SplatScene[]>([]);
   const [sceneId, setSceneId] = useState('');
   const [splatError, setSplatError] = useState<string | null>(null);
+  const [placement, setPlacement] = useState<ArmPlacement | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +59,37 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
     playRollout();
   }, [playToken]);
 
+  // Load the arm placement for the selected scene (saved calibration overrides
+  // the default baked into scenes.json).
+  useEffect(() => {
+    const s = scenes.find((item) => item.id === sceneId);
+    if (!s?.armRig) {
+      setPlacement(undefined);
+      return;
+    }
+    let stored: ArmPlacement | undefined;
+    try {
+      const raw = localStorage.getItem(placementKey(s.id));
+      if (raw) stored = JSON.parse(raw);
+    } catch {
+      /* ignore unreadable storage */
+    }
+    const base: ArmPlacement = { ...(stored ?? s.armPlacement ?? {}) };
+    delete base.showMarker; // marker is a transient calibration aid; off by default
+    setPlacement(base);
+  }, [sceneId, scenes]);
+
+  function updatePlacement(next: ArmPlacement) {
+    setPlacement(next);
+    const persist: ArmPlacement = { ...next };
+    delete persist.showMarker; // never persist the calibration marker
+    try {
+      localStorage.setItem(placementKey(sceneId), JSON.stringify(persist));
+    } catch {
+      /* ignore unwritable storage */
+    }
+  }
+
   const scene = scenes.find((item) => item.id === sceneId);
 
   return (
@@ -59,7 +97,7 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
       <div className="preview-hud preview-hud-top">
         <div>
           <span className="hud-kicker">{mode === 'scene' ? 'Reconstructed world' : 'MuJoCo rollout'}</span>
-          <strong>{mode === 'scene' ? scene?.name ?? world.name : 'Pick the mug'}</strong>
+          <strong>{mode === 'scene' ? scene?.name ?? world.name : 'Grasp the can'}</strong>
         </div>
         <div className="preview-toggle">
           <button className={mode === 'scene' ? 'on' : ''} onClick={() => setMode('scene')} type="button">
@@ -78,7 +116,17 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
         </div>
       </div>
 
-      {mode === 'scene' && scene ? <SplatViewer scene={scene} onError={setSplatError} /> : null}
+      {mode === 'scene' && scene ? (
+        <SplatErrorBoundary
+          key={scene.id}
+          fallback={<div className="preview-empty">Splat viewer unavailable (needs WebGL / a valid scan)</div>}
+        >
+          <SplatViewer scene={scene} onError={setSplatError} placement={placement} />
+        </SplatErrorBoundary>
+      ) : null}
+      {mode === 'scene' && scene?.armRig && placement ? (
+        <ArmCalibrationPanel placement={placement} onChange={updatePlacement} />
+      ) : null}
       {mode === 'scene' && !scene ? (
         <div className="preview-empty">Drop a .splat/.ply in web/public/splats/ and list it in scenes.json</div>
       ) : null}
@@ -87,7 +135,7 @@ export function SplatForgePreview({ world, task, currentStep, policyVersion, pla
       <video
         ref={videoRef}
         className="preview-clip"
-        src="/pick_success.mp4"
+        src={rolloutClip ?? scene?.rollout ?? '/pick_success.mp4'}
         muted
         playsInline
         preload="auto"

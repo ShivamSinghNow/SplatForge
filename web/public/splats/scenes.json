@@ -1,10 +1,50 @@
 [
   {
+    "id": "can",
+    "name": "Soda can on table",
+    "src": "/splats/can.ply",
+    "rollout": "/pick_can.mp4",
+    "cameraUp": [
+      0,
+      -1,
+      0
+    ],
+    "cameraPosition": [
+      11.065,
+      -10.134,
+      12.334
+    ],
+    "cameraLookAt": [
+      0.107,
+      -0.546,
+      0.007
+    ],
+    "armRig": "/rigs/arm_can.json",
+    "armPlacement": {
+      "scale": 0.56,
+      "yawDeg": -25,
+      "anchor": [0.07, -0.6, 0.11]
+    }
+  },
+  {
     "id": "placeholder",
-    "name": "Placeholder cube — replace with your scan",
+    "name": "Placeholder cube",
     "src": "/splats/placeholder.splat",
-    "cameraUp": [0, 1, 0],
-    "cameraPosition": [2.2, 1.6, 2.2],
-    "cameraLookAt": [0, 0, 0]
+    "rollout": "/pick_success.mp4",
+    "cameraUp": [
+      0,
+      1,
+      0
+    ],
+    "cameraPosition": [
+      2.2,
+      1.6,
+      2.2
+    ],
+    "cameraLookAt": [
+      0,
+      0,
+      0
+    ]
   }
 ]
