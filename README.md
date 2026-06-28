@@ -104,9 +104,11 @@ off-the-shelf dependencies:
 
 ## Partner integrations
 
-DigitalOcean (GPU droplets for the fine-tune loop) · Google Gemini (curriculum generator +
-visual critic) · MongoDB Atlas + Voyage AI (replay buffer + failure vector search) · LiveKit
-(optional voice control) · MiniMax (alternative LLM/VLM).
+Google Gemini (curriculum generator + visual critic) · MiniMax (second independent LLM
+critic in the council) · NVIDIA Isaac GR00T N1.7 + Hugging Face (robot foundation model
+inference) · DigitalOcean (GPU droplets for GR00T + the fine-tune loop) · MongoDB Atlas +
+Voyage AI + Chroma (replay buffer + failure vector search) · Polycam (phone Gaussian-splat
+capture).
 
 ## Status & roadmap
 
@@ -204,8 +206,8 @@ Claim or configure these when you reach the matching step:
   `runs/*.jsonl`. Set `MONGODB_URI` and `MONGODB_DATABASE`.
 - **Google Gemini:** needed when you want the multimodal critic council member.
   Set `GEMINI_API_KEY`.
-- **MiniMax:** useful after Gemini plus physics works, as a second critic or
-  creative variant generator.
+- **MiniMax:** the second independent LLM critic in the council (real MiniMax
+  chat API). Set `MINIMAX_API_KEY`.
 - **Digital Ocean:** useful when deploying the CLI/API/dashboard for judges or
   teammates, and especially when you need an NVIDIA GPU instance for Isaac Sim.
 - **LiveKit:** useful only if adding voice, video, teleoperation, or a narrated
