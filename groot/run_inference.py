@@ -22,7 +22,8 @@ from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 MODEL_PATH = "nvidia/GR00T-N1.7-3B"
-EMBODIMENT_TAG = "OXE_DROID_RELATIVE_EEF_RELATIVE_JOINT"
+# resolve() matches by enum name (the value is the lowercase form).
+EMB = EmbodimentTag.resolve("OXE_DROID_RELATIVE_EEF_RELATIVE_JOINT")
 REPO = os.path.dirname(os.path.dirname(gr00t.__file__))
 DATASET_PATH = os.path.join(REPO, "demo_data/droid_sample")
 
@@ -34,7 +35,7 @@ if device == "cuda":
 print(f"[groot] loading {MODEL_PATH} (weights auto-download on first run)...")
 policy = Gr00tPolicy(
     model_path=MODEL_PATH,
-    embodiment_tag=EmbodimentTag(EMBODIMENT_TAG),
+    embodiment_tag=EMB,
     device=device,
     strict=True,
 )
@@ -48,7 +49,7 @@ step = extract_step_data(
     episode,
     step_index=0,
     modality_configs=modality_config,
-    embodiment_tag=EmbodimentTag(EMBODIMENT_TAG),
+    embodiment_tag=EMB,
     allow_padding=False,
 )
 
@@ -72,7 +73,7 @@ for key, value in predicted_action.items():
 
 result = {
     "model": MODEL_PATH,
-    "embodiment": EMBODIMENT_TAG,
+    "embodiment": EMB.value,
     "gpu": torch.cuda.get_device_name(0) if device == "cuda" else "cpu",
     "instruction": step.text,
     "param_count": total,
