@@ -3,6 +3,7 @@ import {
   Brain,
   Check,
   ChevronRight,
+  Cpu,
   Database,
   Download,
   Gauge,
@@ -23,7 +24,7 @@ import { RunProvider, useRun } from './lib/hooks/useRun';
 import { getDemoControlRoomState } from './lib/services/demoSplatForgeService';
 import type { CriticResult, IntegrationStatus, LoopStep, LoopStepId, StepStatus, TrainingWorld } from './lib/types/splatforge';
 
-type SectionId = 'control' | 'worlds' | 'runs' | 'memory' | 'council' | 'policy' | 'health';
+type SectionId = 'control' | 'worlds' | 'runs' | 'memory' | 'council' | 'policy' | 'groot' | 'health';
 
 const state = getDemoControlRoomState();
 const loopOrder: LoopStepId[] = ['world', 'attempt', 'critique', 'curriculum', 'train', 'retest', 'improve'];
@@ -35,6 +36,7 @@ const navItems: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
   { id: 'memory', label: 'Memory', icon: <HardDrive size={17} /> },
   { id: 'council', label: 'Council', icon: <Brain size={17} /> },
   { id: 'policy', label: 'Policy', icon: <GitBranch size={17} /> },
+  { id: 'groot', label: 'GR00T', icon: <Cpu size={17} /> },
   { id: 'health', label: 'Health', icon: <Settings size={17} /> },
 ];
 
@@ -491,6 +493,10 @@ function DetailSection({
     );
   }
 
+  if (activeSection === 'groot') {
+    return <GrootSection />;
+  }
+
   if (activeSection === 'health') {
     return (
       <DataGrid title="Health">
@@ -514,6 +520,45 @@ function DetailSection({
         <button className="secondary-button" onClick={onExport} type="button">Export</button>
       </DataCard>
     </DataGrid>
+  );
+}
+
+function GrootSection() {
+  const g = state.groot;
+  return (
+    <>
+      <div className="detail-title">
+        <h2>GR00T foundation model</h2>
+        <span className="groot-badge">{g.status}</span>
+      </div>
+      <div className="groot-panel">
+        <div className="groot-meta">
+          <DataCard title={g.model}>
+            <KeyValue label="Checkpoint" value={g.modelId} />
+            <KeyValue label="Parameters" value={g.params} />
+            <KeyValue label="GPU" value={g.gpu} />
+            <KeyValue label="Embodiment" value={g.embodiment} />
+            <KeyValue label="Instruction" value={`"${g.instruction}"`} />
+          </DataCard>
+          <DataCard title={`Predicted action chunk (${g.horizon}-step)`}>
+            {g.actionHeads.map((head) => (
+              <KeyValue key={head.key} label={head.label} value={head.shape} />
+            ))}
+          </DataCard>
+          <DataCard title="Open-loop validation">
+            <KeyValue label="Action MSE" value={g.evalMse.toFixed(3)} />
+            <KeyValue label="Action MAE" value={g.evalMae.toFixed(3)} />
+            <KeyValue label="Source" value="real DROID episode" />
+          </DataCard>
+        </div>
+        <figure className="groot-plot">
+          <img src={g.evalPlot} alt="GR00T predicted vs ground-truth joint trajectories" />
+          <figcaption>
+            GR00T predicted (orange) vs expert ground-truth (blue) joint trajectories — open-loop on a real DROID episode.
+          </figcaption>
+        </figure>
+      </div>
+    </>
   );
 }
 

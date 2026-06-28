@@ -312,3 +312,24 @@ export const commandExamples: CommandExample[] = [
   { id: 'train_successes', label: 'Train on successful trajectories from this scene.' },
   { id: 'explain_council', label: 'Explain what the AI council thinks went wrong.' },
 ];
+
+// Real GR00T N1.7 inference + open-loop eval run on the L40S droplet
+// (see groot/run_inference.py, groot/eval_open_loop.py, groot/eval_result.json).
+export const grootInference = {
+  model: 'GR00T N1.7 (3B)',
+  modelId: 'nvidia/GR00T-N1.7-3B',
+  params: '3.14B',
+  gpu: 'NVIDIA L40S (48GB)',
+  embodiment: 'OXE DROID (7-DoF)',
+  instruction: 'pick up the can',
+  horizon: 40,
+  actionHeads: [
+    { key: 'eef_9d', label: 'End-effector pose', shape: '1 × 40 × 9' },
+    { key: 'gripper_position', label: 'Gripper', shape: '1 × 40 × 1' },
+    { key: 'joint_position', label: 'Joint targets', shape: '1 × 40 × 7' },
+  ],
+  evalMse: 0.03,
+  evalMae: 0.119,
+  evalPlot: '/groot_eval_plot.png',
+  status: 'Inference verified · open-loop MSE 0.030',
+};
