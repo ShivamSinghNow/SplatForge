@@ -36,7 +36,7 @@ PEN_POS = (0.17, -0.10)
 # Grasp parameters per selectable object: (x, y) on the table, the fingertip
 # height to grasp at, and the height to lift the gripper to.
 _OBJECTS = {
-    "can": {"pos": CAN_POS, "grasp_z": CAN_Z - 0.01, "lift_z": CAN_Z + 0.24, "label": "the can"},
+    "can": {"pos": CAN_POS, "grasp_z": CAN_Z, "lift_z": CAN_Z + 0.26, "label": "the can"},
     "pen": {"pos": PEN_POS, "grasp_z": TABLE_H + 0.02, "lift_z": TABLE_H + 0.24, "label": "the pen"},
     # Notebook is a chunky book so it reads clearly when lifted (no wrist tilt --
     # tilting a welded flat object stresses the constraint until it flings off).
@@ -53,7 +53,7 @@ BASE_X, BASE_Y = -0.34, 0.18
 PEDESTAL_H = 0.12
 SHOULDER_Z = TABLE_H + PEDESTAL_H
 L1, L2 = 0.28, 0.26
-GRIP_DROP = 0.075
+GRIP_DROP = 0.095  # fingertip site below the wrist (long enough to clear a tall can)
 
 
 def _coll(is_target: bool) -> str:
@@ -162,8 +162,8 @@ def _scene_mjcf(target: str = "can", clutter: bool = False) -> str:
               <joint name="j_wrist" type="hinge" axis="0 1 0" damping="4" range="-3.2 3.2"/>
               <geom type="sphere" size="0.024" material="joint" contype="0" conaffinity="0"/>
               <geom type="box" size="0.03 0.022 0.014" pos="0 0 -0.016" material="metal" contype="0" conaffinity="0"/>
-              <geom type="box" size="0.008 0.02 0.03" pos="-0.026 0 -0.05" material="finger" contype="0" conaffinity="0"/>
-              <geom type="box" size="0.008 0.02 0.03" pos="0.026 0 -0.05" material="finger" contype="0" conaffinity="0"/>
+              <geom type="box" size="0.008 0.02 0.035" pos="-0.026 0 -0.065" material="finger" contype="0" conaffinity="0"/>
+              <geom type="box" size="0.008 0.02 0.035" pos="0.026 0 -0.065" material="finger" contype="0" conaffinity="0"/>
               <site name="grip" pos="0 0 {-GRIP_DROP}" size="0.006"/>
             </body>
           </body>
